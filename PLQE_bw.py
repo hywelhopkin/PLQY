@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Only change the settings in these top two sections
-def PLQE_bw(short_name, folder='.', fiber='red', laser_range=[397, 407], pl_range=[450, 850], short_time=1, long_name='', long_time=0, common=True, common_bckg='bckg.txt', common_empty='empty.txt'):
+def PLQE_bw(short_name, folder='.', fiber='red', laser_range=[397, 407], pl_range=[450, 850], short_time=1, long_name='', long_time=0, common=True, common_bckg='bckg.txt', common_empty='empty.txt', common_long = True, common_long_bckg='long_bckg.txt', common_long_empty = 'long_empty.txt'):
     """
     Calculation of PL quantum efficiency.
 
@@ -60,9 +60,40 @@ def PLQE_bw(short_name, folder='.', fiber='red', laser_range=[397, 407], pl_rang
     >>> 
     """
 
-    print('There you go')
-    print(short_name)
-    print('with a new modification' )
+    data = loadit(short_name, folder, long_name, common, common_bckg, common_empty, common_long, common_long_bckg, common_long_empty)
+    print(data.shape())
+
+    
+
+def loadit(short_name, folder='.', long_name='', common=True, common_bckg='bckg.txt', common_empty='empty.txt', common_long = True, common_long_bckg='long_bckg.txt', common_long_empty = 'long_empty.txt'):
+    # Function to load files
+    short_in = np.loadtxt(folder + short_name + 'in.txt', delimiter='\t')
+    short_out = np.loadtxt(folder + short_name + 'out.txt', delimiter='\t')
+    
+    if common == True:
+        short_bckg = np.loadtxt(folder + common_bckg, delimiter='\t')
+        short_empty = np.loadtxt(folder + common_empty, delimiter='\t')
+    else:
+        short_bckg = np.loadtxt(folder + short_name + 'bckg.txt', delimiter='\t')
+        short_empty = np.loadtxt(folder + short_name + 'empty.txt', delimiter='\t')
+    
+    data = np.c_(short_in, short_out, short_bckg, short_empty)
+
+    if long_name != '':
+        long_in = np.loadtxt(folder + long_name + 'in.txt', delimiter='\t')
+        long_out = np.loadtxt(folder + long_name + 'out.txt', delimiter='\t')
+        
+        if common == True:
+            long_bckg = np.loadtxt(folder + common_long_bckg, delimiter='\t')
+            long_empty = np.loadtxt(folder + common_long_empty, delimiter='\t')
+        else:
+            long_bckg = np.loadtxt(folder + long_name + 'bckg.txt', delimiter='\t')
+            long_empty = np.loadtxt(folder + long_name + 'empty.txt', delimiter='\t')
+
+        data = np.c_(data, long_in, long_out, long_bckg, long_empty)
+
+    return data
+
 
 #loadit = @(fn)(importdata(['perovTest_100ms_',fn])');
 # loadit_long = @(fn)(dlmread([data_folder,long_name,fn],'\t', 0, 0)');
