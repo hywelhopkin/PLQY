@@ -62,6 +62,7 @@ def PLQE_bw(short_name, folder='.', fiber='red', laser_range=[397, 407], pl_rang
 
     print('There you go')
     print(short_name)
+    print('with a new modification' )
 
 #loadit = @(fn)(importdata(['perovTest_100ms_',fn])');
 # loadit_long = @(fn)(dlmread([data_folder,long_name,fn],'\t', 0, 0)');
