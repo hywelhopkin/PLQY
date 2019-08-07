@@ -6,8 +6,35 @@
 # 6/8/2019, v1.0, converted from Matlab
 
 import sys
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+
+def get_args():
+    """Get arguments and options"""
+    parser = argparse.ArgumentParser(description='Calculation of PL quantum efficiency.')
+    
+    parser.add_argument('-sn', '--short-name', type=str, required=True, help="Prefix of the file names (e.g 'filename_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'")
+    
+    opt = parser.add_argument_group('optional arguments')
+    opt.add_argument('-d', '--directory', default='.', type=str, help="folder in which the raw files are stored (e.g. 'folder_name/sub_folder/'")    
+    opt.add_argument('-f', '--fiber', default='red', type=str, help="Fiber used. 'red' or 'silver', Default = 'red'")    
+    opt.add_argument('-lr', '--laser-range', nargs = 2, default= [397, 407], type=int, help="Laser wavelength range in nm, Default = [397, 407]")
+    opt.add_argument('-plr', '--pl-range', nargs = 2, default= [550, 850], type=int, help="PL detection range in nm, Default = [550, 850]")
+    opt.add_argument('-st', '--short-time', default= 1, type=int, help="Integration time for short measurement in ms")
+    opt.add_argument('-ln', '--long-name', default= '', type=str, help="Prefix of the long file name (e.g 'filename_long_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'")
+    opt.add_argument('-lt', '--long-time', default= 0, type=int, help="Integration time for long measurement in ms")
+    opt.add_argument('-c', '--common', default= True, type=bool, help="Indicates that common background and empty files are used. Default = True")
+    opt.add_argument('-cb', '--common-bckg', default= 'bckg.txt', type=str, help=" Name of the common background file. Default = 'bckg.txt'")
+    opt.add_argument('-ce', '--common-empty', default= 'empty.txt', type=str, help=" Name of the common empty file. Default = 'empty.txt'")
+    opt.add_argument('-clb', '--common-long-bckg', default= 'long_bckg.txt', type=str, help=" Name of the common long background file. Default = 'long_bckg.txt'")
+    opt.add_argument('-cle', '--common-long-empty', default= 'long_empty.txt', type=str, help=" Name of the common long empty file. Default = 'long_empty.txt'")
+   
+    args = parser.parse_args()
+    
+    return args
+
+get_args()
 
 # Only change the settings in these top two sections
 def PLQE_bw(short_name, folder='.', fiber='red', laser_range=[397, 407], pl_range=[450, 850], short_time=1, long_name='', long_time=0, common=True, common_bckg='bckg.txt', common_empty='empty.txt', common_long = True, common_long_bckg='long_bckg.txt', common_long_empty = 'long_empty.txt'):
@@ -48,6 +75,12 @@ def PLQE_bw(short_name, folder='.', fiber='red', laser_range=[397, 407], pl_rang
     common_empty : str, optional
         Name of the common empty file
         Default = 'empty.txt'
+    common_long_bckg : str, optional
+        Name of the common long background file
+        Default = 'long_bckg.txt'
+    common_long_empty : str, optional
+        Name of the common long empty file
+        Default = 'long_empty.txt'
 
     Returns
     -------
@@ -60,8 +93,8 @@ def PLQE_bw(short_name, folder='.', fiber='red', laser_range=[397, 407], pl_rang
     >>> 
     """
 
-    data = loadit(short_name, folder, long_name, common, common_bckg, common_empty, common_long, common_long_bckg, common_long_empty)
-    print(data.shape())
+    # data = loadit(short_name, folder, long_name, common, common_bckg, common_empty, common_long, common_long_bckg, common_long_empty)
+    # print(data.shape())
 
     
 
@@ -94,6 +127,7 @@ def loadit(short_name, folder='.', long_name='', common=True, common_bckg='bckg.
 
     return data
 
+get_args()
 
 #loadit = @(fn)(importdata(['perovTest_100ms_',fn])');
 # loadit_long = @(fn)(dlmread([data_folder,long_name,fn],'\t', 0, 0)');
