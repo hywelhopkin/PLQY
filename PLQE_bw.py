@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 # written by bernard.wenger@heliodm.com
+
+# Using the procedure of DeMello et al https://doi.org/10.1002/adma.19970090308
+
 # History
 # 6/8/2019, v1.0, converted from Matlab
 
@@ -9,6 +12,12 @@ import sys
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from scipy.io import loadmat
+
+# define constants
+cal_red = 'SpecResp_MayaPro_200umRedFiber_WavelengthCorrected_Updated_16052014'
+cal_steel = 'SpecResp_MayaPro_50umSteelFiber_WavelengthCorrected_Updated_16052014'
 
 def get_args():
     """Get arguments and options"""
@@ -18,8 +27,8 @@ def get_args():
     
     opt = parser.add_argument_group('optional arguments')
     opt.add_argument('-d', '--directory', default='.', type=str, help="folder in which the raw files are stored (e.g. 'folder_name/sub_folder/'")    
-    opt.add_argument('-f', '--fiber', default='red', type=str, help="Fiber used. 'red' or 'silver', Default = 'red'")    
-    opt.add_argument('-lr', '--laser_range', nargs = 2, default= [397, 407], type=int, help="Laser wavelength range in nm, Default = [397, 407]")
+    opt.add_argument('-f', '--fiber', default='red', type=str, help="Fiber used. 'red' or 'steel', Default = 'red'")    
+    opt.add_argument('-lr', '--laser_range', nargs = 2, default= [395, 410], type=int, help="Laser wavelength range in nm, Default = [397, 407]")
     opt.add_argument('-plr', '--pl_range', nargs = 2, default= [550, 850], type=int, help="PL detection range in nm, Default = [550, 850]")
     opt.add_argument('-st', '--short_time', default= 1, type=int, help="Integration time for short measurement in ms")
     opt.add_argument('-ln', '--long_name', default= '', type=str, help="Prefix of the long file name (e.g 'filename_long_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'")
@@ -36,258 +45,188 @@ def get_args():
 
 
 def PLQE(args):
-    print(args.common)
+    # Function running all calculations
+    data = loadit(args) # Load data and calibration file
+    cal_file = cal_red if args.fiber == 'red' else cal_steel
+    cal = loadmat(cal_file)['cal'][:][0].T
 
-# def search_func():
+    # Unpack data
+    short_in = data[:, 0:2]
+    short_out = data[:, 2:4]
+    short_bckg = data[:, 4:6]
+    short_empty = data[:, 6:8]
+    wl = short_in[:, 0]
 
-# Run functions
-if __name__ == "__main__":
-    args = get_args()
-    PLQE(args)
+    # Process
+    short_in[:, 1] -= short_bckg[:, 1]
+    short_out[:, 1] -= short_bckg[:, 1]
+    short_empty[:, 1] -= short_bckg[:, 1]
 
-# Only change the settings in these top two sections
-def PLQE_bw(short_name, directory='.', fiber='red', laser_range=[397, 407], pl_range=[450, 850], short_time=1, long_name='', long_time=0, common=True, common_bckg='bckg.txt', common_empty='empty.txt', common_long = True, common_long_bckg='long_bckg.txt', common_long_empty = 'long_empty.txt'):
-    """
-    Calculation of PL quantum efficiency.
+    def scale(d, time):
+        # divide by integration time
+        return (d[:, 1] - np.mean(d[20:50, 1])) / time
 
-    Parameters
-    ----------
-    directory : str, optional
-        folder in which the raw files are stored (e.g. 'folder_name/sub_folder/'
-        Default = '.'
-    fiber : str, optional
-        Fiber used. 'red' or 'silver'
-        Default = 'red'
-    laser_range : list of integer, optional
-        Wavelength range for the excitation laser (e.g [397, 407]) 
-        Default = [397, 407]
-    pl_range : list of integer, optional
-        Wavelength range used to calculate the emission (e.g [550, 750])
-        Default = [450, 850]
-    short_name : str, required
-        Prefix of the file names (e.g 'filename_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'
-    short_time : int, optional
-        Integration time for short measurement in ms
-        Default = 1
-    long_name : str, optional
-        Prefix of the long file name (e.g 'filename_long_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'
-        Default = ''
-    long_time : int, optional
-        Integration time for long measurement in ms
-        Default = 0
-    common : bool, optional
-        Indicates that common background and empty files are used
-        Default = True
-    common_bckg : str, optional
-        Name of the common background file
-        Default = 'bckg.txt'
-    common_empty : str, optional
-        Name of the common empty file
-        Default = 'empty.txt'
-    common_long_bckg : str, optional
-        Name of the common long background file
-        Default = 'long_bckg.txt'
-    common_long_empty : str, optional
-        Name of the common long empty file
-        Default = 'long_empty.txt'
+    short_in[:, 1] = scale(short_in, args.short_time)
+    short_out[:, 1] = scale(short_out, args.short_time)
+    short_empty[:, 1] = scale(short_empty, args.short_time)
+    
+    if args.long_name != '':
+        # process long files if existing
+        print('Combining short and long measurements...')
+        long_in = data[:, 8:10]
+        long_out = data[:, 10:12]
+        long_bckg = data[:, 12:14]
+        long_empty = data[:, 14:16]
+        
+        long_in[:, 1] -= long_bckg[:, 1]
+        long_out[:, 1] -= long_bckg[:, 1]
+        long_empty[:, 1] -= long_bckg[:, 1]
 
-    Returns
-    -------
-    tbdout : ndarray
-        Data read from the text file.
+        long_in[:, 1] = scale(long_in, args.long_time)
+        long_out[:, 1] = scale(long_out, args.long_time)
+        long_empty[:, 1] = scale(long_empty, args.long_time)
 
-    Examples
-    --------
-    >>> write down an example
-    >>> 
-    """
+    _in  = short_in[:, 1]
+    _out = short_out[:, 1]
+    _empty = short_empty[:, 1]
 
-    # data = loadit(short_name, folder, long_name, common, common_bckg, common_empty, common_long, common_long_bckg, common_long_empty)
-    # print(data.shape())
+    # Apply calibration
+    _in  = _in * cal
+    _out = _out * cal
+    _empty = _empty * cal
+
+    def inte(d, x, _range):
+        # select data over a  within given wavelength range
+        d_int = np.trapz(d[np.where((x > _range[0]) & (x < _range[1]))], x=x[np.where((x > _range[0]) & (x < _range[1]))])
+        return d_int
+
+    # The calibration gives a scaled spectrum with a response proportional to the number of photons, not the power 
+
+    absorbed_full = 1 - inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)
+    PL_full  = inte(_in, wl, args.pl_range) - inte(_empty, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out, wl, args.pl_range) - inte(_empty, wl, args.pl_range))
+    QE_full = PL_full / (inte(_empty, wl, args.laser_range) * absorbed_full)
+
+    # Print results
+    print('')
+    print('RESULTS')
+    print('-------')
+    print('PLQY = {:.3f} %'.format(QE_full*100))
+    print('Absorbtance = {:.2f} %'.format(absorbed_full*100))
+    print('Absorbance = {:.2f} '.format(-np.log10(1-absorbed_full)))
+
+    # Save results
+
+
+    # Plot results
+    fig = plt.figure(figsize=(11,8))
+    gs = gridspec.GridSpec(2,2)
 
     
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax3 = fig.add_subplot(gs[:, 1])
 
+    for ax in [ax1, ax2]:
+        ax.semilogy(wl, _in, label='in')
+        ax.semilogy(wl, _out, label='out')
+        ax.semilogy(wl, _empty, label='empty')
+        ax.set_xlabel('Wavelength (nm)')
+        ax.set_ylabel('Counts [a.u.]')
+        ax.legend()
+
+    ax1.set_xlim(args.laser_range[0]-15, args.laser_range[1] + 15)
+    ax1.set_ylim(bottom = 5)
+    ax1.axvline(args.laser_range[0], linestyle='--', color='k')
+    ax1.axvline(args.laser_range[1], linestyle='--', color='k')
+    ax2.set_xlim(args.pl_range[0]-25, args.pl_range[1] + 25)
+    ax2.axvline(args.pl_range[0], linestyle='--', color='k')
+    ax2.axvline(args.pl_range[1], linestyle='--', color='k')
+
+    ax3.plot(wl, _in - _empty, label='in')
+    ax3.plot(wl, _out - _empty, label='out')
+    ax3.set_xlabel('Wavelength (nm)')
+    ax3.set_ylabel('Counts [a.u.]')
+    ax3.set_xlim(args.pl_range[0]-25, args.pl_range[1] + 25)
+    ax3.set_ylim(0, 1.2* np.max(_in[np.where((wl > args.pl_range[0]) & (wl < args.pl_range[1]))] - _empty[np.where((wl > args.pl_range[0]) & (wl < args.pl_range[1]))]))
+
+    ax3.legend()
+    ax3.annotate('PLQY = {0:.3f} % \nAbsorbance = {1:.2f}'.format(QE_full*100, -np.log10(1-absorbed_full)), xy=(0.05, 0.92), xycoords='axes fraction')
+
+    return fig
+
+    # ##Giles' export function
+    # fileID = fopen(['PLQE_log.txt'], 'a');
+    # fwrite(fileID,[13 10],'char');
+    # fprintf(fileID,[short_name char(9)]);
+    # fprintf(fileID,QEText_full);
+    # fclose(fileID);
+
+    # #save spectra
+    # dlmwrite([data_folder, short_name, 'spectrum.txt'], [x.' (in-out).'], '\t');
+
+    # ## Plotting
+    # clf;
+    # subplot(221)
+    # title('All data');
+    # warning('off','MATLAB:Axes:NegativeDataInLogAxis')
+    # semilogy(x,in,x,out,x,empty);
+    # axis([380 1000 5e-2 2*max(empty)]);
+    # legend('In','Out','Laser');
+    # xlabel('Wavelength (nm)');
+    # ylabel('PL (counts/sec)');
+    # title('All PL (calibrated)');
+    # subplot(223);
+    # plot(x,in-empty,x,out-empty);
+    # axis([380 900 0 max(in(548:1582)-empty(548:1582))]);
+    # title('Just PL (empty baseline is subtracted)');
+    # legend('In','Out', 'Location', 'NorthWest');
+    # xlabel('Wavelength (nm)');
+    # ylabel('PL (counts/sec) - corrected');
+    # subplot(122);
+    # plot(absorbed,PL,'d:');
+    # xlabel('Absorbed photons');
+    # ylabel('PL photons');
+    # legend(['  PLQE = ' QEText_full],'location','best');
+    # #legend(['Power =', PowerText, '  PLQE = ' QEText_full],'location','best');
+    # hgexport(gcf, [data_folder long_name '.jpeg'],hgexport('factorystyle'),'Format', 'jpeg')
+
+    
 def loadit(args):
     # Function to load files
     short_in = np.loadtxt(args.directory + args.short_name + 'in.txt', delimiter='\t')
     short_out = np.loadtxt(args.directory + args.short_name + 'out.txt', delimiter='\t')
     
-    if common == True:
-        short_bckg = np.loadtxt(args.directory + common_bckg, delimiter='\t')
-        short_empty = np.loadtxt(args.directory + common_empty, delimiter='\t')
+    if args.common == True:
+        short_bckg = np.loadtxt(args.directory + args.common_bckg, delimiter='\t')
+        short_empty = np.loadtxt(args.directory + args.common_empty, delimiter='\t')
     else:
         short_bckg = np.loadtxt(args.directory + args.short_name + 'bckg.txt', delimiter='\t')
         short_empty = np.loadtxt(args.directory + args.short_name + 'empty.txt', delimiter='\t')
     
-    data = np.c_(short_in, short_out, short_bckg, short_empty)
+    data = np.c_[short_in, short_out, short_bckg, short_empty]
 
-    if long_name != '':
+    if args.long_name != '':
         long_in = np.loadtxt(args.directory + args.long_name + 'in.txt', delimiter='\t')
         long_out = np.loadtxt(args.directory + args.long_name + 'out.txt', delimiter='\t')
         
-        if common == True:
+        if args.common == True:
             long_bckg = np.loadtxt(args.directory + args.common_long_bckg, delimiter='\t')
             long_empty = np.loadtxt(args.directory + args.common_long_empty, delimiter='\t')
         else:
             long_bckg = np.loadtxt(args.directory + args.long_name + 'bckg.txt', delimiter='\t')
             long_empty = np.loadtxt(args.directory + args.long_name + 'empty.txt', delimiter='\t')
 
-        data = np.c_(data, long_in, long_out, long_bckg, long_empty)
+        data = np.c_[data, long_in, long_out, long_bckg, long_empty]
 
     return data
 
-#loadit = @(fn)(importdata(['perovTest_100ms_',fn])');
-# loadit_long = @(fn)(dlmread([data_folder,long_name,fn],'\t', 0, 0)');
-# loadit_short = @(fn)(dlmread([data_folder,short_name,fn],'\t', 0, 0)');
-# loadit_generic = @(fn)(dlmread([data_folder,fn],'\t', 0, 0)');
 
-# if strcmp(common_bckg,'') == 0
-#     short_bckg  = loadit_generic(common_bckg);
-# else
-#     short_bckg    = loadit_short('bckg.txt');
-# end
-# short_in    = loadit_short('in.txt');
-# short_out   = loadit_short('out.txt');
-# if strcmp(common_empty,'') == 0
-#     short_empty = loadit_generic(common_empty);
-# else
-#     short_empty = loadit_short('empty.txt');
-# end
+# Run functions
+if __name__ == "__main__":
+    args = get_args()
+    fig = PLQE(args)
 
-# if nargin < 4
-#     long_bckg = short_bckg;
-#     long_empty = short_empty;
-#     long_in = short_in;
-#     long_out = short_out;
-    
-# else
-# #     long_bckg   = loadit_generic('long_bckg.txt');
-#     long_bckg   = loadit_long('bckg.txt');
-#     long_in     = loadit_long('in.txt');
-#     long_out    = loadit_long('out.txt');
-# #     long_empty  = loadit_generic('long_empty.txt');
-#     long_empty  = loadit_long('empty.txt'); 
-# end
+plt.show(block=True)
 
-
-# ## Select Fiber calibration file
-
-# if fiber == 1 # red fiber
-#     cal_file ='SpecResp_MayaPro_200umRedFiber_WavelengthCorrected_Updated_16052014';
-# elseif fiber == 2 # silver fiber
-#     cal_file = 'SpecResp_MayaPro_50umSteelFiber_WavelengthCorrected_Updated_16052014';
-# else
-#     str = 'Select fiber: 1 (red) or (2) silver'
-#     return
-# end
-
-# ## BackgroundSubtract
-
-# short_in(2,:) = short_in(2,:)-short_bckg(2,:);
-# short_out(2,:) = short_out(2,:)-short_bckg(2,:);
-# short_empty(2,:) = short_empty(2,:)-short_bckg(2,:);
-
-# long_in(2,:) = long_in(2,:)-long_bckg(2,:);
-# long_out(2,:) = long_out(2,:)-long_bckg(2,:);
-# long_empty(2,:) = long_empty(2,:)-long_bckg(2,:);
-
-
-
-
-# ## Process
-# proc   = @(d,time)((d(2,:)-mean(d(2,1:24)))./time);
-
-# x = short_in(1,:);
-
-# short_in       = proc(short_in,short_time);
-# short_out      = proc(short_out,short_time);
-# short_empty    = proc(short_empty,short_time);
-
-# long_in       = proc(long_in,long_time);
-# long_out      = proc(long_out,long_time);
-# long_empty    = proc(long_empty,long_time);
-
-# ## Combine
-# repl   = @(x,high,low,range)([low(1:search(x,range(1))),high(search(x,range(1))+1:search(x,range(2))),low(search(x,range(2))+1:end)]);
-
-# in    = repl(x,short_in,long_in,laser_range);
-# out   = repl(x,short_out,long_out,laser_range);
-# empty = repl(x,short_empty,long_empty,laser_range);
-
-# ## Calibrate
-# #load('IntSphere_calib_532Laser_nofilt','cal');
-# load(cal_file,'cal');
-# in    = in.*cal;
-# out   = out.*cal;
-# empty = empty.*cal;
-# # trick to remove background
-# # out(538:end) = mean(in(1200:1250));
-# # empty(538:end) = mean(in(1200:1250));
-
-# ## Calculate quantum efficiency (naive approach, no reabsorbtion)
-
-# inte = @(x,y,n)(sum(y(search(x,n(1)):search(x,n(2))))); 
-# #load('PowerCalibration','PowCal');
-# #Power = inte(x,short_empty.*cal,laser_range).*PowCal(p)/0.16;
-# #PowerText = [num2str(Power,3),'mW/cm^2']
-
-# absorbed = [0,1-(inte(x,in,laser_range)./(inte(x,out,laser_range)))]; # Fraction of photons absorbed
-# PL       = [0,inte(x,in,pl_range)-inte(x,empty,pl_range)];   #PL (not removing PL from reabsorption)
-
-# QE = PL(2)./(inte(x,empty,laser_range).*absorbed(2));
-# QEText = [num2str(QE*100,3),'#'];
-
-# # From Adv Mater, 9, 230 (1997) (including reabsorption)
-
-# absorbed_full = [0,1-(inte(x,in,laser_range)./(inte(x,out,laser_range)))];   # Fraction of photons absorbed on first pass
-# PL_full       = [0,inte(x,in,pl_range)-inte(x,empty,pl_range)-(1-absorbed_full(2)).*(inte(x,out,pl_range)-inte(x,empty,pl_range))];  # PL from first pass
-
-# QE_full = PL_full(2)./(inte(x,empty,laser_range).*absorbed_full(2));
-# QEText_full = [num2str(QE_full*100,3),'#'];
-
-# # print results
-# fprintf('\nRESULTS\n')
-# fprintf('-------\n')
-# fprintf('PLQY = #.3f ## (#.3f ## w/o reabs) \n', QE_full*100, QE*100)
-# fprintf('Absorbtance = #.2f ## \n', absorbed_full(2)*100)
-# fprintf('Absorbance = #.2f \n', - log10(1 - absorbed_full(2)))
-
-# ##Giles' export function
-# fileID = fopen(['PLQE_log.txt'], 'a');
-# fwrite(fileID,[13 10],'char');
-# fprintf(fileID,[short_name char(9)]);
-# fprintf(fileID,QEText_full);
-# fclose(fileID);
-
-# #save spectra
-# dlmwrite([data_folder, short_name, 'spectrum.txt'], [x.' (in-out).'], '\t');
-
-# ## Plotting
-# clf;
-# subplot(221)
-# title('All data');
-# warning('off','MATLAB:Axes:NegativeDataInLogAxis')
-# semilogy(x,in,x,out,x,empty);
-# axis([380 1000 5e-2 2*max(empty)]);
-# legend('In','Out','Laser');
-# xlabel('Wavelength (nm)');
-# ylabel('PL (counts/sec)');
-# title('All PL (calibrated)');
-# subplot(223);
-# plot(x,in-empty,x,out-empty);
-# axis([380 900 0 max(in(548:1582)-empty(548:1582))]);
-# title('Just PL (empty baseline is subtracted)');
-# legend('In','Out', 'Location', 'NorthWest');
-# xlabel('Wavelength (nm)');
-# ylabel('PL (counts/sec) - corrected');
-# subplot(122);
-# plot(absorbed,PL,'d:');
-# xlabel('Absorbed photons');
-# ylabel('PL photons');
-# legend(['  PLQE = ' QEText_full],'location','best');
-# #legend(['Power =', PowerText, '  PLQE = ' QEText_full],'location','best');
-# hgexport(gcf, [data_folder long_name '.jpeg'],hgexport('factorystyle'),'Format', 'jpeg')
-
-if __name__ == '__main__':
-    # Map command line arguments to function arguments.
-    PLQE_bw(*sys.argv[1:])
+    # ## Combine
+    # repl   = @(x,high,low,range)([low(1:search(x,range(1))),high(search(x,range(1))+1:search(x,range(2))),low(search(x,range(2))+1:end)]);
