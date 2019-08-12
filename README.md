@@ -63,5 +63,6 @@ optional arguments:
                         'long_empty.txt'
   ```
   
-  ##Example:
+  ## Example
+  Run: 
   `python PLQE_bw.py  -d ../../Desktop/PL/pl2/ -st 15 -lt 100 -plr 700 850 -sn S10_sh_ -ln S10_lg_`
