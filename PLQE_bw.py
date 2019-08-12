@@ -75,8 +75,10 @@ def PLQE(args):
         # function to combine long and short wl
         low = np.max(np.argwhere(wl < laser_range[0]))
         high = np.min(np.argwhere(wl > laser_range[1]))
-        
-        return np.concatenate(short_[0:low], long_[low+1:high], short_[high+1:])
+
+        combined = np.append(long_[0:low+1, 1], short_[(low+1):(high+1), 1])
+        combined = np.append(combined, long_[(high+1):, 1])
+        return combined
 
     if args.long_name != '':
         # process long files if existing
@@ -198,7 +200,7 @@ def loadit(args):
 def save_res(fig, spectrum, args):
     # saving results
     plt.savefig(args.directory + args.short_name + 'fig.pdf', format='pdf')
-    np.savetxt(args.directory + args.short_name + 'spectrum.txt', spectrum, delimiter='\t')
+    np.savetxt(args.directory + args.short_name + 'spectrum.txt', spectrum, delimiter='\t', fmt='%.5f')
 
 
 
