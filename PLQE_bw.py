@@ -7,6 +7,7 @@
 
 # History
 # 6/8/2019, v1.0, converted from Matlab
+# 9/8/2019, v1.1, first working version (no added functions)
 
 import sys
 import argparse
@@ -23,7 +24,7 @@ def get_args():
     """Get arguments and options"""
     parser = argparse.ArgumentParser(description='Calculation of PL quantum efficiency.')
     
-    parser.add_argument('-sn', '--short_name', type=str, required=True, help="Prefix of the file names (e.g 'filename_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'")
+    parser.add_argument('-sn', '--short_name', type=str, required=True, help="Prefix of the file names (e.g 'filename_') to be followed by 'in.txt', 'out.txt', 'bckg.txt' or 'empty.txt'")
     
     opt = parser.add_argument_group('optional arguments')
     opt.add_argument('-d', '--directory', default='.', type=str, help="folder in which the raw files are stored (e.g. 'folder_name/sub_folder/'")    
@@ -70,6 +71,13 @@ def PLQE(args):
     short_out[:, 1] = scale(short_out, args.short_time)
     short_empty[:, 1] = scale(short_empty, args.short_time)
     
+    def repl(short_, long_, wl, laser_range):
+        # function to combine long and short wl
+        low = np.max(np.argwhere(wl < laser_range[0]))
+        high = np.min(np.argwhere(wl > laser_range[1]))
+        
+        return np.concatenate(short_[0:low], long_[low+1:high], short_[high+1:])
+
     if args.long_name != '':
         # process long files if existing
         print('Combining short and long measurements...')
@@ -86,14 +94,20 @@ def PLQE(args):
         long_out[:, 1] = scale(long_out, args.long_time)
         long_empty[:, 1] = scale(long_empty, args.long_time)
 
-    _in  = short_in[:, 1]
-    _out = short_out[:, 1]
-    _empty = short_empty[:, 1]
-
+        _in = repl(short_in, long_in, wl, args.laser_range)
+        _out = repl(short_out, long_out, wl, args.laser_range)
+        _empty = repl(short_empty, long_empty, wl, args.laser_range)
+    else:
+        _in  = short_in[:, 1]
+        _out = short_out[:, 1]
+        _empty = short_empty[:, 1]
+    
     # Apply calibration
     _in  = _in * cal
     _out = _out * cal
     _empty = _empty * cal
+
+    spectrum = np.c_[wl, (_in - _out)]
 
     def inte(d, x, _range):
         # select data over a  within given wavelength range
@@ -113,9 +127,6 @@ def PLQE(args):
     print('PLQY = {:.3f} %'.format(QE_full*100))
     print('Absorbtance = {:.2f} %'.format(absorbed_full*100))
     print('Absorbance = {:.2f} '.format(-np.log10(1-absorbed_full)))
-
-    # Save results
-
 
     # Plot results
     fig = plt.figure(figsize=(11,8))
@@ -152,43 +163,7 @@ def PLQE(args):
     ax3.legend()
     ax3.annotate('PLQY = {0:.3f} % \nAbsorbance = {1:.2f}'.format(QE_full*100, -np.log10(1-absorbed_full)), xy=(0.05, 0.92), xycoords='axes fraction')
 
-    return fig
-
-    # ##Giles' export function
-    # fileID = fopen(['PLQE_log.txt'], 'a');
-    # fwrite(fileID,[13 10],'char');
-    # fprintf(fileID,[short_name char(9)]);
-    # fprintf(fileID,QEText_full);
-    # fclose(fileID);
-
-    # #save spectra
-    # dlmwrite([data_folder, short_name, 'spectrum.txt'], [x.' (in-out).'], '\t');
-
-    # ## Plotting
-    # clf;
-    # subplot(221)
-    # title('All data');
-    # warning('off','MATLAB:Axes:NegativeDataInLogAxis')
-    # semilogy(x,in,x,out,x,empty);
-    # axis([380 1000 5e-2 2*max(empty)]);
-    # legend('In','Out','Laser');
-    # xlabel('Wavelength (nm)');
-    # ylabel('PL (counts/sec)');
-    # title('All PL (calibrated)');
-    # subplot(223);
-    # plot(x,in-empty,x,out-empty);
-    # axis([380 900 0 max(in(548:1582)-empty(548:1582))]);
-    # title('Just PL (empty baseline is subtracted)');
-    # legend('In','Out', 'Location', 'NorthWest');
-    # xlabel('Wavelength (nm)');
-    # ylabel('PL (counts/sec) - corrected');
-    # subplot(122);
-    # plot(absorbed,PL,'d:');
-    # xlabel('Absorbed photons');
-    # ylabel('PL photons');
-    # legend(['  PLQE = ' QEText_full],'location','best');
-    # #legend(['Power =', PowerText, '  PLQE = ' QEText_full],'location','best');
-    # hgexport(gcf, [data_folder long_name '.jpeg'],hgexport('factorystyle'),'Format', 'jpeg')
+    return fig, spectrum
 
     
 def loadit(args):
@@ -220,13 +195,17 @@ def loadit(args):
 
     return data
 
+def save_res(fig, spectrum, args):
+    # saving results
+    plt.savefig(args.directory + args.short_name + 'fig.pdf', format='pdf')
+    np.savetxt(args.directory + args.short_name + 'spectrum.txt', spectrum, delimiter='\t')
+
+
 
 # Run functions
 if __name__ == "__main__":
     args = get_args()
-    fig = PLQE(args)
+    fig, spectrum = PLQE(args)
+    save_res(fig, spectrum, args)
 
 plt.show(block=True)
-
-    # ## Combine
-    # repl   = @(x,high,low,range)([low(1:search(x,range(1))),high(search(x,range(1))+1:search(x,range(2))),low(search(x,range(2))+1:end)]);
