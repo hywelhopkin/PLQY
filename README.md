@@ -14,7 +14,7 @@ Copy the main file and the calibration files into your working folder
 Usage of the program is described running `PLQE_bw.py --help`:
 
 ```
-usage: PLQE_bw.py [-h] -sn SHORT_NAME [-d DIRECTORY] [-f FIBER]
+usage: PLQE_bw.py [-h] -sn SHORT_NAME [-d DIRECTORY] [-cfg CONFIG]
                   [-lr LASER_RANGE LASER_RANGE] [-plr PL_RANGE PL_RANGE]
                   [-st SHORT_TIME] [-ln LONG_NAME] [-lt LONG_TIME] [-c COMMON]
                   [-cb COMMON_BCKG] [-ce COMMON_EMPTY] [-clb COMMON_LONG_BCKG]
@@ -33,8 +33,10 @@ optional arguments:
   -d DIRECTORY, --directory DIRECTORY
                         folder in which the raw files are stored (e.g.
                         'folder_name/sub_folder/'
-  -f FIBER, --fiber FIBER
-                        Fiber used. 'red' or 'steel', Default = 'red'
+  -cfg CONFIG, --config CONFIG
+                        Fiber and spectrometer configurations. Choices: 'Maya
+                        red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE
+                        steel 25' or 'QE steel 200', Default = 'Maya red'
   -lr LASER_RANGE LASER_RANGE, --laser_range LASER_RANGE LASER_RANGE
                         Laser wavelength range in nm, Default = [397, 407]
   -plr PL_RANGE PL_RANGE, --pl_range PL_RANGE PL_RANGE
