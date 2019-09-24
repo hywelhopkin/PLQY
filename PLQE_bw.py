@@ -8,6 +8,7 @@
 # History
 # 6/8/2019, v1.0, converted from Matlab
 # 9/8/2019, v1.1, first working version (no added functions)
+# 22/9/2019, v1.2, added QE pro spectrometer
 
 import sys
 import argparse
@@ -16,9 +17,15 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.io import loadmat
 
-# define constants
-cal_red = 'SpecResp_MayaPro_200umRedFiber_WavelengthCorrected_Updated_16052014'
-cal_steel = 'SpecResp_MayaPro_50umSteelFiber_WavelengthCorrected_Updated_16052014'
+# define calibration files
+cal_dict = {
+        "Maya red" : 'cal_Maya_red.txt',
+        "Maya steel" : 'cal_Maya_steel.txt',
+        "QE red 25"  : 'cal_QEpro_red_25um.txt',
+        "QE red 200" : 'cal_QEpro_red_200um.txt',
+        "QE steel 25" : 'cal_QEpro_steel_25um.txt',
+        "QE steel 200" : 'cal_QEpro_steel_200um.txt',
+    }
 
 def get_args():
     """Get arguments and options"""
@@ -28,7 +35,7 @@ def get_args():
     
     opt = parser.add_argument_group('optional arguments')
     opt.add_argument('-d', '--directory', default='.', type=str, help="folder in which the raw files are stored (e.g. 'folder_name/sub_folder/'")    
-    opt.add_argument('-f', '--fiber', default='red', type=str, help="Fiber used. 'red' or 'steel', Default = 'red'")    
+    opt.add_argument('-cfg', '--config', default='Maya red', type=str, help="Fiber and spectrometer configurations. Choices: 'Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25' or 'QE steel 200', Default = 'Maya red'")    
     opt.add_argument('-lr', '--laser_range', nargs = 2, default= [395, 410], type=int, help="Laser wavelength range in nm, Default = [397, 407]")
     opt.add_argument('-plr', '--pl_range', nargs = 2, default= [550, 850], type=int, help="PL detection range in nm, Default = [550, 850]")
     opt.add_argument('-st', '--short_time', default= 1, type=int, help="Integration time for short measurement in ms")
@@ -48,8 +55,22 @@ def get_args():
 def PLQE(args):
     # Function running all calculations
     data = loadit(args) # Load data and calibration file
-    cal_file = cal_red if args.fiber == 'red' else cal_steel
-    cal = loadmat(cal_file)['cal'][:][0].T
+    cal = np.loadtxt('cal/' + cal_dict.get(args.config))
+
+    def trim(data, vr):
+        # function used to select the valid range (could also be used for removing hot pixels)
+        return data[vr[0]:vr[1], :]
+
+    if 'QE' in args.config:
+        vr = [4, -5] # valid range limits
+        data = trim(data, vr)
+    elif 'Maya' in args.config:
+        vr = [5, -6] # valid range limits
+        data = trim(data, vr)
+    
+    cal = np.interp(data[:, 0], cal[:, 0], cal[:, 1])
+
+    # Continue here so that it works for every calibration file
 
     # Unpack data
     short_in = data[:, 0:2]
@@ -148,7 +169,7 @@ def PLQE(args):
         ax.legend()
 
     ax1.set_xlim(args.laser_range[0]-15, args.laser_range[1] + 15)
-    ax1.set_ylim(bottom = 5)
+    ax1.set_ylim(bottom = 1e-2)
     ax1.axvline(args.laser_range[0], linestyle='--', color='k')
     ax1.axvline(args.laser_range[1], linestyle='--', color='k')
     ax2.set_xlim(args.pl_range[0]-25, args.pl_range[1] + 25)
