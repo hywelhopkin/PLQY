@@ -8,7 +8,7 @@ The measurement procedure is based on the paper by De Mello et al. (https://doi.
 ## Installation
 First install a python distribution, for example Anaconda (download here: https://www.anaconda.com/distribution/)
 
-Copy the main file and the calibration files into your working folder
+Copy the main file and the calibration files into your working folder. The calibration files should be in a sub-directory named "./cal/"
 
 ## Usage
 Usage of the program is described running `PLQE_bw.py --help`:
