@@ -9,6 +9,7 @@
 # 6/8/2019, v1.0, converted from Matlab
 # 9/8/2019, v1.1, first working version (no added functions)
 # 22/9/2019, v1.2, added QE pro spectrometer
+# 27/9/2019, v1.3, added subtraction of stray light
 
 import sys
 import argparse
@@ -41,11 +42,12 @@ def get_args():
     opt.add_argument('-st', '--short_time', default= 1, type=int, help="Integration time for short measurement in ms")
     opt.add_argument('-ln', '--long_name', default= '', type=str, help="Prefix of the long file name (e.g 'filename_long_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'")
     opt.add_argument('-lt', '--long_time', default= 0, type=int, help="Integration time for long measurement in ms")
-    opt.add_argument('-c', '--common', default= True, type=bool, help="Indicates that common background and empty files are used. Default = True")
+    opt.add_argument('-c', '--common', default=True, type=bool, help="Indicates that common background and empty files are used. Default = True")
     opt.add_argument('-cb', '--common_bckg', default= 'bckg.txt', type=str, help=" Name of the common background file. Default = 'bckg.txt'")
     opt.add_argument('-ce', '--common_empty', default= 'empty.txt', type=str, help=" Name of the common empty file. Default = 'empty.txt'")
     opt.add_argument('-clb', '--common_long_bckg', default= 'long_bckg.txt', type=str, help=" Name of the common long background file. Default = 'long_bckg.txt'")
     opt.add_argument('-cle', '--common_long_empty', default= 'long_empty.txt', type=str, help=" Name of the common long empty file. Default = 'long_empty.txt'")
+    opt.add_argument('-sl', '--stray_light', default=False, type=bool, help="Removes stray light background. Default = 'False'")
    
     args = parser.parse_args()
     
@@ -69,8 +71,6 @@ def PLQE(args):
         data = trim(data, vr)
     
     cal = np.interp(data[:, 0], cal[:, 0], cal[:, 1])
-
-    # Continue here so that it works for every calibration file
 
     # Unpack data
     short_in = data[:, 0:2]
@@ -103,7 +103,9 @@ def PLQE(args):
 
     if args.long_name != '':
         # process long files if existing
-        print('Combining short and long measurements...')
+        print('\nCombining short and long measurements...')
+        if args.long_time == 0:
+            print("\n!!! Don't forget to enter integration times !!!\n")
         long_in = data[:, 8:10]
         long_out = data[:, 10:12]
         long_bckg = data[:, 12:14]
@@ -137,8 +139,40 @@ def PLQE(args):
         d_int = np.trapz(d[np.where((x > _range[0]) & (x < _range[1]))], x=x[np.where((x > _range[0]) & (x < _range[1]))])
         return d_int
 
-    # The calibration gives a scaled spectrum with a response proportional to the number of photons, not the power 
+    def remove_stray(_in, _out, _empty, wl, wl_range, pl_range):
+        # remove background due to stray light
+        def get_avg(x, wl, wl_range):
+            idx = [np.argmin(abs(wl - wl_range[0])), np.argmin(abs(wl - wl_range[1]))]
+            avg = np.trapz(x[idx[0]:idx[1]], wl[idx[0]:idx[1]])
+            return avg
+        
+        # first take the average in a region below the laser peak
+        avg_empty = get_avg(_empty, wl, wl_range)
+        avg_out = get_avg(_out, wl, wl_range)
+        avg_in = get_avg(_in, wl, wl_range)
 
+        # Apply correction only in PL range
+        def corr_pl_range(d, x, _empty, avg_data, avg_empty, _range):
+            d_pl_range = d[np.where((x > _range[0]) & (x < _range[1]))]
+            _empty_pl_range = _empty[np.where((x > _range[0]) & (x < _range[1]))]
+            d_corr = (d_pl_range * (avg_empty / avg_data) - _empty_pl_range) * (avg_data / avg_empty)
+            d[np.where((x > _range[0]) & (x < _range[1]))] = d_corr
+            return d
+        
+        _in_corr = corr_pl_range(_in, wl, _empty, avg_in, avg_empty, pl_range)
+        _out_corr = corr_pl_range(_out, wl, _empty, avg_out, avg_empty, pl_range)
+        _empty_corr = corr_pl_range(_empty, wl, _empty, avg_empty, avg_empty, pl_range)
+        
+        return _in_corr, _out_corr, _empty_corr
+    
+    if args.stray_light == True:
+        # Removes stray light background
+        print('With stray light correction')
+        wl_range = [370, 390]
+        _in, _out, _empty = remove_stray(_in, _out, _empty, wl, wl_range, args.pl_range)
+
+
+    # The calibration gives a scaled spectrum with a response proportional to the number of photons, not the power 
     absorbed_full = 1 - inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)
     PL_full  = inte(_in, wl, args.pl_range) - inte(_empty, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out, wl, args.pl_range) - inte(_empty, wl, args.pl_range))
     QE_full = PL_full / (inte(_empty, wl, args.laser_range) * absorbed_full)
