@@ -14,6 +14,9 @@
 
 import sys
 import argparse
+from pathlib import Path, PurePath
+from os import chdir, path
+from inspect import getsourcefile
 from gooey import Gooey, GooeyParser
 import numpy as np
 import matplotlib.pyplot as plt
@@ -46,9 +49,8 @@ def get_args():
     """Get arguments and options"""
     parser = GooeyParser(description='Calculation of PL quantum efficiency.')
 
-    req = parser.add_argument_group('Select directory and file')
-    req.add_argument('-d', '--directory', type=str, widget="DirChooser", help="folder in which the raw files are stored (e.g. 'folder_name/sub_folder'")    
-    req.add_argument('-sn', '--short_name', type=str, required=True, help="Prefix of the file names (e.g 'filename_') to be followed by 'in.txt', 'out.txt', 'bckg.txt' or 'empty.txt'")
+    req = parser.add_argument_group('Select directory and file', gooey_options={'columns': 1})
+    req.add_argument('-sp', '--short_path', type=str, widget="FileChooser", help="Path to the '_in.txt' file (e.g. 'C:/folder_name/sub_folder/short_name_in.txt'", gooey_options={'wildcard':"'in' files (*_in.txt)|*_in.txt|" "All files (*.*)|*.*"})    
     req.add_argument('-c', '--common', action='store_true', help="Indicates that common background and empty files are used. Default=False")
     
 
@@ -63,19 +65,23 @@ def get_args():
     long_group = parser.add_argument_group("Using long integration time", gooey_options={'columns': 3})
     long_group.add_argument('-st', '--short_time', default= 10, type=int, help="Integration time for short measurement in ms")
     long_group.add_argument('-lt', '--long_time', default= 100, type=int, help="Integration time for long measurement in ms")
-    long_group.add_argument('-ln', '--long_name', default= '', type=str, help="Prefix of the long file name (e.g 'filename_long_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'")
+    long_group.add_argument('-lp', '--long_path', type=str, default='', widget="FileChooser", help="Path to the long '_in.txt' file (e.g. 'C:/folder_name/sub_folder/long_name_in.txt'", gooey_options={'wildcard':"'in' files (*_in.txt)|*_in.txt|" "All files (*.*)|*.*"})    
     long_group.add_argument('-cl', '--common_long', action='store_true', help="Indicates that common background and empty files are used. Default = True")
     long_group.add_argument('-clb', '--common_long_bckg', default= 'long_bckg.txt', type=str, help=" Name of the common long background file. Default = 'long_bckg.txt'")
     long_group.add_argument('-cle', '--common_long_empty', default= 'long_empty.txt', type=str, help=" Name of the common long empty file. Default = 'long_empty.txt'")
 
     args = parser.parse_args()
-    args.directory += "\\"
+
+    args.directory = Path(args.short_path).resolve().parent
+    args.short_name = Path(args.short_path).name
+    if (args.long_path != '') : args.long_name = Path(args.long_path).name
+    args.cwd = Path.cwd()
     return args
 
 def PLQE(args):
     # Function running all calculations
     data = loadit(args) # Load data and calibration file
-    cal = np.loadtxt('cal/' + cal_dict.get(args.config))
+    cal = np.loadtxt(PurePath(args.cwd).joinpath('cal', cal_dict.get(args.config)))
 
     def trim(data, vr):
         # function used to select the valid range (could also be used for removing hot pixels)
@@ -84,7 +90,7 @@ def PLQE(args):
     if 'QE' in args.config:
         vr = [4, -5] # valid range limits
         data = trim(data, vr)
-    elif 'Maya' in args.config:
+    elif 'Maya' in args.config: 
         vr = [5, -6] # valid range limits
         data = trim(data, vr)
     
@@ -119,7 +125,7 @@ def PLQE(args):
         combined = np.append(combined, long_[(high+1):, 1])
         return combined
 
-    if args.long_name != '':
+    if args.long_path != '':
         # process long files if existing
         print('\nCombining short and long measurements...')
         if args.long_time == 0:
@@ -243,28 +249,29 @@ def PLQE(args):
     
 def loadit(args):
     # Function to load files
-    short_in = np.loadtxt(args.directory + args.short_name + 'in.txt', delimiter='\t')
-    short_out = np.loadtxt(args.directory + args.short_name + 'out.txt', delimiter='\t')
+    chdir(args.directory)
+    short_in = np.loadtxt(args.short_name, delimiter='\t')
+    short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t')
     
     if args.common == True:
-        short_bckg = np.loadtxt(args.directory + args.common_bckg, delimiter='\t')
-        short_empty = np.loadtxt(args.directory + args.common_empty, delimiter='\t')
+        short_bckg = np.loadtxt(args.common_bckg, delimiter='\t')
+        short_empty = np.loadtxt(args.common_empty, delimiter='\t')
     else:
-        short_bckg = np.loadtxt(args.directory + args.short_name + 'bckg.txt', delimiter='\t')
-        short_empty = np.loadtxt(args.directory + args.short_name + 'empty.txt', delimiter='\t')
+        short_bckg = np.loadtxt(str(args.short_name).replace('in.txt', 'bckg.txt'), delimiter='\t')
+        short_empty = np.loadtxt(str(args.short_name).replace('in.txt', 'empty.txt'), delimiter='\t')
     
     data = np.c_[short_in, short_out, short_bckg, short_empty]
 
-    if args.long_name != '':
-        long_in = np.loadtxt(args.directory + args.long_name + 'in.txt', delimiter='\t')
-        long_out = np.loadtxt(args.directory + args.long_name + 'out.txt', delimiter='\t')
+    if args.long_path != '':
+        long_in = np.loadtxt(args.long_name, delimiter='\t')
+        long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t')
         
         if args.common_long == True:
-            long_bckg = np.loadtxt(args.directory + args.common_long_bckg, delimiter='\t')
-            long_empty = np.loadtxt(args.directory + args.common_long_empty, delimiter='\t')
+            long_bckg = np.loadtxt(args.common_long_bckg, delimiter='\t')
+            long_empty = np.loadtxt(args.common_long_empty, delimiter='\t')
         else:
-            long_bckg = np.loadtxt(args.directory + args.long_name + 'bckg.txt', delimiter='\t')
-            long_empty = np.loadtxt(args.directory + args.long_name + 'empty.txt', delimiter='\t')
+            long_bckg = np.loadtxt(str(args.long_name).replace('in.txt', 'bckg.txt'), delimiter='\t')
+            long_empty = np.loadtxt(str(args.long_name).replace('in.txt', 'empty.txt'), delimiter='\t')
 
         data = np.c_[data, long_in, long_out, long_bckg, long_empty]
 
@@ -272,8 +279,8 @@ def loadit(args):
 
 def save_res(fig, spectrum, args):
     # saving results
-    plt.savefig(args.directory + args.short_name + 'fig.pdf', format='pdf')
-    np.savetxt(args.directory + args.short_name + 'spectrum.txt', spectrum, delimiter='\t', fmt='%.5f')
+    plt.savefig(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'fig.pdf')), format='pdf')
+    np.savetxt(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'spectrum.txt')), spectrum, delimiter='\t', fmt='%.5f')
 
 
 
