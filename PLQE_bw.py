@@ -15,8 +15,7 @@
 import sys
 import argparse
 from pathlib import Path, PurePath
-from os import chdir, path
-from inspect import getsourcefile
+from os import chdir
 from gooey import Gooey, GooeyParser
 import numpy as np
 import matplotlib.pyplot as plt
