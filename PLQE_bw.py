@@ -22,7 +22,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.io import loadmat
 
-
 # define calibration files
 cal_dict = {
         "Maya red" : 'cal_Maya_red.txt',
