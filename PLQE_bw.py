@@ -6,17 +6,20 @@
 # Using the procedure of DeMello et al https://doi.org/10.1002/adma.19970090308
 
 # History
-# 6/8/2019, v1.0, converted from Matlab
-# 9/8/2019, v1.1, first working version (no added functions)
-# 22/9/2019, v1.2, added QE pro spectrometer
-# 27/9/2019, v1.3, added subtraction of stray light
+# 06/08/2019, converted from Matlab
+# 09/08/2019, first working version (no added functions)
+# 22/09/2019, added QE pro spectrometer
+# 27/09/2019, added subtraction of stray light
+# 08/10/2019, added Gooey
 
 import sys
 import argparse
+from gooey import Gooey, GooeyParser
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.io import loadmat
+
 
 # define calibration files
 cal_dict = {
@@ -28,31 +31,46 @@ cal_dict = {
         "QE steel 200" : 'cal_QEpro_steel_200um.txt',
     }
 
+cfgs = ['Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25', 'QE steel 200']
+
+# Use flag --ignore-gooey if you want to use the command line
+@Gooey(advanced=True,          # toggle whether to show advanced config or not 
+       default_size=(800, 600),   # starting size of the GUI
+       show_success_modal = False,
+       return_to_config = True,
+       navigation = "TABBED",
+       tabbed_groups=True,
+)
+
 def get_args():
     """Get arguments and options"""
-    parser = argparse.ArgumentParser(description='Calculation of PL quantum efficiency.')
+    parser = GooeyParser(description='Calculation of PL quantum efficiency.')
+
+    req = parser.add_argument_group('Select directory and file')
+    req.add_argument('-d', '--directory', type=str, widget="DirChooser", help="folder in which the raw files are stored (e.g. 'folder_name/sub_folder'")    
+    req.add_argument('-sn', '--short_name', type=str, required=True, help="Prefix of the file names (e.g 'filename_') to be followed by 'in.txt', 'out.txt', 'bckg.txt' or 'empty.txt'")
+    req.add_argument('-c', '--common', action='store_true', help="Indicates that common background and empty files are used. Default=False")
     
-    parser.add_argument('-sn', '--short_name', type=str, required=True, help="Prefix of the file names (e.g 'filename_') to be followed by 'in.txt', 'out.txt', 'bckg.txt' or 'empty.txt'")
-    
-    opt = parser.add_argument_group('optional arguments')
-    opt.add_argument('-d', '--directory', default='.', type=str, help="folder in which the raw files are stored (e.g. 'folder_name/sub_folder/'")    
-    opt.add_argument('-cfg', '--config', default='Maya red', type=str, help="Fiber and spectrometer configurations. Choices: 'Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25' or 'QE steel 200', Default = 'Maya red'")    
-    opt.add_argument('-lr', '--laser_range', nargs = 2, default= [395, 410], type=int, help="Laser wavelength range in nm, Default = [397, 407]")
-    opt.add_argument('-plr', '--pl_range', nargs = 2, default= [550, 850], type=int, help="PL detection range in nm, Default = [550, 850]")
-    opt.add_argument('-st', '--short_time', default= 1, type=int, help="Integration time for short measurement in ms")
-    opt.add_argument('-ln', '--long_name', default= '', type=str, help="Prefix of the long file name (e.g 'filename_long_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'")
-    opt.add_argument('-lt', '--long_time', default= 0, type=int, help="Integration time for long measurement in ms")
-    opt.add_argument('-c', '--common', default=True, type=bool, help="Indicates that common background and empty files are used. Default = True")
+
+    opt = parser.add_argument_group('optional arguments', gooey_options={'columns': 2})
+    opt.add_argument('-lr', '--laser_range', nargs = 2, default = "395 410", type=int, help="Laser wavelength range in nm, Default = 395 410")
+    opt.add_argument('-plr', '--pl_range', nargs = 2, default = "550 850", type=int, help="PL detection range in nm, Default = 550 850")
+    opt.add_argument('-cfg', '--config', default='Maya red', widget="Dropdown", choices=cfgs, type=str, help="Fiber and spectrometer configurations. Choices: 'Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25' or 'QE steel 200', Default = 'Maya red'")    
+    opt.add_argument('-sl', '--stray_light', action='store_true', help="Removes stray light background. Default = 'False'")
     opt.add_argument('-cb', '--common_bckg', default= 'bckg.txt', type=str, help=" Name of the common background file. Default = 'bckg.txt'")
     opt.add_argument('-ce', '--common_empty', default= 'empty.txt', type=str, help=" Name of the common empty file. Default = 'empty.txt'")
-    opt.add_argument('-clb', '--common_long_bckg', default= 'long_bckg.txt', type=str, help=" Name of the common long background file. Default = 'long_bckg.txt'")
-    opt.add_argument('-cle', '--common_long_empty', default= 'long_empty.txt', type=str, help=" Name of the common long empty file. Default = 'long_empty.txt'")
-    opt.add_argument('-sl', '--stray_light', default=False, type=bool, help="Removes stray light background. Default = 'False'")
-   
-    args = parser.parse_args()
-    
-    return args
 
+    long_group = parser.add_argument_group("Using long integration time", gooey_options={'columns': 3})
+    long_group.add_argument('-st', '--short_time', default= 10, type=int, help="Integration time for short measurement in ms")
+    long_group.add_argument('-lt', '--long_time', default= 100, type=int, help="Integration time for long measurement in ms")
+    long_group.add_argument('-ln', '--long_name', default= '', type=str, help="Prefix of the long file name (e.g 'filename_long_') to be followed by 'in.txt', 'out_.txt', 'bckg.txt' or 'empty.txt'")
+    long_group.add_argument('-cl', '--common_long', action='store_true', help="Indicates that common background and empty files are used. Default = True")
+    long_group.add_argument('-clb', '--common_long_bckg', default= 'long_bckg.txt', type=str, help=" Name of the common long background file. Default = 'long_bckg.txt'")
+    long_group.add_argument('-cle', '--common_long_empty', default= 'long_empty.txt', type=str, help=" Name of the common long empty file. Default = 'long_empty.txt'")
+
+    args = parser.parse_args()
+    args.directory += "\\"
+    return args
 
 def PLQE(args):
     # Function running all calculations
@@ -179,7 +197,7 @@ def PLQE(args):
 
     # Print results
     print('')
-    print('RESULTS')
+    print(f'RESULTS ({args.short_name})')
     print('-------')
     print('PLQY = {:.3f} %'.format(QE_full*100))
     print('Absorbtance = {:.2f} %'.format(absorbed_full*100))
@@ -241,7 +259,7 @@ def loadit(args):
         long_in = np.loadtxt(args.directory + args.long_name + 'in.txt', delimiter='\t')
         long_out = np.loadtxt(args.directory + args.long_name + 'out.txt', delimiter='\t')
         
-        if args.common == True:
+        if args.common_long == True:
             long_bckg = np.loadtxt(args.directory + args.common_long_bckg, delimiter='\t')
             long_empty = np.loadtxt(args.directory + args.common_long_empty, delimiter='\t')
         else:
@@ -265,4 +283,4 @@ if __name__ == "__main__":
     fig, spectrum = PLQE(args)
     save_res(fig, spectrum, args)
 
-plt.show(block=True)
+plt.show()
