@@ -11,7 +11,12 @@ First install a python distribution, for example Anaconda (download here: https:
 Copy the main file and the calibration files into your working folder. The calibration files should be in a sub-directory named "./cal/"
 
 ## Usage
-The program can be used without argument and the Gooey interface. If you still want to use the commande line, add flag ~~~ --ignore-gooey ~~~
+The program can be used without argument and the Gooey interface. From a conda environment, simply run (without arguments):
+```
+python PLQE_bw.py
+```
+
+If you still want to use the commande line, add flag  `--ignore-gooey`
 
 Usage of the program is described running `PLQE_bw.py --help`:
 
