@@ -80,7 +80,7 @@ def get_args():
 def PLQE(args):
     # Function running all calculations
     data = loadit(args) # Load data and calibration file
-    cal = np.loadtxt(PurePath(args.cwd).joinpath('cal', cal_dict.get(args.config)))
+    cal = np.loadtxt(str(PurePath(args.cwd).joinpath('cal', cal_dict.get(args.config))))
 
     def trim(data, vr):
         # function used to select the valid range (could also be used for removing hot pixels)
@@ -278,8 +278,8 @@ def loadit(args):
 
 def save_res(fig, spectrum, args):
     # saving results
-    plt.savefig(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'fig.pdf')), format='pdf')
-    np.savetxt(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'spectrum.txt')), spectrum, delimiter='\t', fmt='%.5f')
+    plt.savefig(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'fig.pdf'))), format='pdf')
+    np.savetxt(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'spectrum.txt'))), spectrum, delimiter='\t', fmt='%.5f')
 
 
 
