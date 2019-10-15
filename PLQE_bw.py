@@ -155,7 +155,7 @@ def PLQE(args):
     _out = _out * cal
     _empty = _empty * cal
 
-    spectrum = np.c_[wl, (_in - _out)]
+
 
     def inte(d, x, _range):
         # select data over a  within given wavelength range
@@ -193,8 +193,9 @@ def PLQE(args):
         print('With stray light correction')
         wl_range = [370, 390]
         _in, _out, _empty = remove_stray(_in, _out, _empty, wl, wl_range, args.pl_range)
-
-
+        
+    spectrum = np.c_[wl, (_in - _out)]
+    
     # The calibration gives a scaled spectrum with a response proportional to the number of photons, not the power 
     absorbed_full = 1 - inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)
     PL_full  = inte(_in, wl, args.pl_range) - inte(_empty, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out, wl, args.pl_range) - inte(_empty, wl, args.pl_range))
@@ -279,7 +280,7 @@ def loadit(args):
 def save_res(fig, spectrum, args):
     # saving results
     plt.savefig(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'fig.pdf'))), format='pdf')
-    np.savetxt(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'spectrum.txt'))), spectrum, delimiter='\t', fmt='%.5f')
+    np.savetxt(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'spectrum.txt'))), spectrum, delimiter='\t', fmt='%.5e')
 
 
 
