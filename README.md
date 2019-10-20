@@ -8,6 +8,11 @@ The measurement procedure is based on the paper by De Mello et al. (https://doi.
 ## Installation
 First install a python distribution, for example Anaconda (download here: https://www.anaconda.com/distribution/)
 
+With Anaconda you should have all the required modules except Gooey, that you can install with:
+```
+conda install -c conda-forge gooey
+```
+
 Copy the main file and the calibration files into your working folder. The calibration files should be in a sub-directory named "./cal/"
 
 ## Usage
