@@ -250,12 +250,20 @@ def PLQE(args):
 def loadit(args):
     # Function to load files
     chdir(args.directory)
-    short_in = np.loadtxt(args.short_name, delimiter='\t')
-    short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t')
+    try:
+        short_in = np.loadtxt(args.short_name, delimiter='\t')
+        short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t')
+    except:
+        short_in = np.loadtxt(args.short_name, delimiter='\t', skiprows=14)
+        short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t', skiprows=14)
     
     if args.common == True:
-        short_bckg = np.loadtxt(args.common_bckg, delimiter='\t')
-        short_empty = np.loadtxt(args.common_empty, delimiter='\t')
+        try:
+            short_bckg = np.loadtxt(args.common_bckg, delimiter='\t')
+            short_empty = np.loadtxt(args.common_empty, delimiter='\t')
+        except:
+            short_bckg = np.loadtxt(args.common_bckg, delimiter='\t', skiprows=14)
+            short_empty = np.loadtxt(args.common_empty, delimiter='\t', skiprows=14)
     else:
         short_bckg = np.loadtxt(str(args.short_name).replace('in.txt', 'bckg.txt'), delimiter='\t')
         short_empty = np.loadtxt(str(args.short_name).replace('in.txt', 'empty.txt'), delimiter='\t')
@@ -263,12 +271,20 @@ def loadit(args):
     data = np.c_[short_in, short_out, short_bckg, short_empty]
 
     if args.long_path != '':
-        long_in = np.loadtxt(args.long_name, delimiter='\t')
-        long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t')
-        
+        try:
+            long_in = np.loadtxt(args.long_name, delimiter='\t')
+            long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t')
+        except:
+            long_in = np.loadtxt(args.long_name, delimiter='\t', skiprows=14)
+            long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t', skiprows=14)
+
         if args.common_long == True:
-            long_bckg = np.loadtxt(args.common_long_bckg, delimiter='\t')
-            long_empty = np.loadtxt(args.common_long_empty, delimiter='\t')
+            try:
+                long_bckg = np.loadtxt(args.common_long_bckg, delimiter='\t')
+                long_empty = np.loadtxt(args.common_long_empty, delimiter='\t')
+            except:
+                long_bckg = np.loadtxt(args.common_long_bckg, delimiter='\t', skiprows=14)
+                long_empty = np.loadtxt(args.common_long_empty, delimiter='\t', skiprows=14)
         else:
             long_bckg = np.loadtxt(str(args.long_name).replace('in.txt', 'bckg.txt'), delimiter='\t')
             long_empty = np.loadtxt(str(args.long_name).replace('in.txt', 'empty.txt'), delimiter='\t')
