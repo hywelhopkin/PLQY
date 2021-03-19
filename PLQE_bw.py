@@ -258,7 +258,17 @@ def PLQE(args):
 def loadit(args):
     # Function to load files
     chdir(args.directory)
+<<<<<<< HEAD
 
+=======
+    try:
+        short_in = np.loadtxt(args.short_name, delimiter='\t')
+        short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t')
+    except:
+        short_in = np.loadtxt(args.short_name, delimiter='\t', skiprows=14)
+        short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t', skiprows=14)
+    
+>>>>>>> a33ac61398445b080d68ba3c71f5af3d07d176d0
     if args.common == True:
         try:
             short_bckg = np.loadtxt(args.common_bckg, delimiter='\t')
@@ -286,6 +296,16 @@ def loadit(args):
     data = np.c_[short_in, short_out, short_bckg, short_empty]
 
     if args.long_path != '':
+<<<<<<< HEAD
+=======
+        try:
+            long_in = np.loadtxt(args.long_name, delimiter='\t')
+            long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t')
+        except:
+            long_in = np.loadtxt(args.long_name, delimiter='\t', skiprows=14)
+            long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t', skiprows=14)
+
+>>>>>>> a33ac61398445b080d68ba3c71f5af3d07d176d0
         if args.common_long == True:
             try:
                 long_bckg = np.loadtxt(args.common_long_bckg, delimiter='\t')
