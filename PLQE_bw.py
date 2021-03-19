@@ -10,7 +10,7 @@
 # 09/08/2019, first working version (no added functions)
 # 22/09/2019, added QE pro spectrometer
 # 27/09/2019, added subtraction of stray light
-# 08/10/2019, added Gooey
+# 08/10/2019, added Gooey (see Github for further history)
 
 import sys
 import argparse
@@ -21,6 +21,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.io import loadmat
+from lmfit.models import VoigtModel, ConstantModel
 
 
 # define calibration files
@@ -50,11 +51,12 @@ def get_args():
 
     req = parser.add_argument_group('Select directory and file', gooey_options={'columns': 1})
     req.add_argument('-sp', '--short_path', type=str, widget="FileChooser", help="Path to the '_in.txt' file (e.g. 'C:/folder_name/sub_folder/short_name_in.txt'", gooey_options={'wildcard':"'in' files (*_in.txt)|*_in.txt|" "All files (*.*)|*.*"})    
-    req.add_argument('-c', '--common', action='store_true', help="Indicates that common background and empty files are used. Default=False")
+    req.add_argument('-c', '--common', action='store_true', help="Indicates that common background and empty files are used.")
+    req.add_argument('-f', '--fQY', action='store_true', help="Check this for fQY mode.")
     
 
     opt = parser.add_argument_group('optional arguments', gooey_options={'columns': 2})
-    opt.add_argument('-lr', '--laser_range', nargs = 2, default = "395 410", type=int, help="Laser wavelength range in nm, Default = 395 410")
+    opt.add_argument('-lr', '--laser_range', nargs = 2, default = "440 460", type=int, help="Laser wavelength range in nm, Default = 440 460")
     opt.add_argument('-plr', '--pl_range', nargs = 2, default = "550 850", type=int, help="PL detection range in nm, Default = 550 850")
     opt.add_argument('-cfg', '--config', default='Maya red', widget="Dropdown", choices=cfgs, type=str, help="Fiber and spectrometer configurations. Choices: 'Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25' or 'QE steel 200', Default = 'Maya red'")    
     opt.add_argument('-sl', '--stray_light', action='store_true', help="Removes stray light background. Default = 'False'")
@@ -194,7 +196,7 @@ def PLQE(args):
         wl_range = [370, 390]
         _in, _out, _empty = remove_stray(_in, _out, _empty, wl, wl_range, args.pl_range)
         
-    spectrum = np.c_[wl, (_in - _out)]
+    spectra = np.c_[wl, _empty, _in, _out, (_in - _out)]
     
     # The calibration gives a scaled spectrum with a response proportional to the number of photons, not the power 
     absorbed_full = 1 - inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)
@@ -207,7 +209,7 @@ def PLQE(args):
     print('-------')
     print('PLQY = {:.3f} %'.format(QE_full*100))
     print('Absorbtance = {:.2f} %'.format(absorbed_full*100))
-    print('Absorbance = {:.2f} '.format(-np.log10(1-absorbed_full)))
+    print('OD = {:.2f} '.format(-np.log10(1-absorbed_full)))
 
     # Plot results
     fig = plt.figure(figsize=(11,8))
@@ -242,52 +244,110 @@ def PLQE(args):
     ax3.set_ylim(0, 1.2* np.max(_in[np.where((wl > args.pl_range[0]) & (wl < args.pl_range[1]))] - _empty[np.where((wl > args.pl_range[0]) & (wl < args.pl_range[1]))]))
 
     ax3.legend()
-    ax3.annotate('PLQY = {0:.3f} % \nAbsorbance = {1:.2f}'.format(QE_full*100, -np.log10(1-absorbed_full)), xy=(0.05, 0.92), xycoords='axes fraction')
+    center, fwhm = fit_voigt(ax3, spectra, args)
 
-    return fig, spectrum
+    ax3.annotate(
+        f'PLQY = {QE_full*100:.2f} % \n'
+        f'OD = {-np.log10(1-absorbed_full):.2f} \n'
+        f'Peak center = {center:.2f} nm \n'
+        f'FWHM = {fwhm:.2f} nm',
+        xy=(0.05, 0.89), xycoords='axes fraction')
 
-    
+    return fig, spectra
+
 def loadit(args):
     # Function to load files
     chdir(args.directory)
-    short_in = np.loadtxt(args.short_name, delimiter='\t')
-    short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t')
-    
+
     if args.common == True:
-        short_bckg = np.loadtxt(args.common_bckg, delimiter='\t')
-        short_empty = np.loadtxt(args.common_empty, delimiter='\t')
+        try:
+            short_bckg = np.loadtxt(args.common_bckg, delimiter='\t')
+            short_empty = np.loadtxt(args.common_empty, delimiter='\t')
+        except:
+            short_bckg = np.loadtxt(args.common_bckg, delimiter='\t', skiprows=14)
+            short_empty = np.loadtxt(args.common_empty, delimiter='\t', skiprows=14)
     else:
         short_bckg = np.loadtxt(str(args.short_name).replace('in.txt', 'bckg.txt'), delimiter='\t')
         short_empty = np.loadtxt(str(args.short_name).replace('in.txt', 'empty.txt'), delimiter='\t')
-    
+
+    try:
+        short_in = np.loadtxt(args.short_name, delimiter='\t')
+        if args.fQY == False: 
+            short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t')
+        else:
+            short_out = short_empty.copy()
+    except:
+        short_in = np.loadtxt(args.short_name, delimiter='\t', skiprows=14)
+        if args.fQY == False: 
+            short_out = np.loadtxt(str(args.short_name).replace('in.txt', 'out.txt'), delimiter='\t', skiprows=14)
+        else:
+            short_out = short_empty.copy()
+
     data = np.c_[short_in, short_out, short_bckg, short_empty]
 
     if args.long_path != '':
-        long_in = np.loadtxt(args.long_name, delimiter='\t')
-        long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t')
-        
         if args.common_long == True:
-            long_bckg = np.loadtxt(args.common_long_bckg, delimiter='\t')
-            long_empty = np.loadtxt(args.common_long_empty, delimiter='\t')
+            try:
+                long_bckg = np.loadtxt(args.common_long_bckg, delimiter='\t')
+                long_empty = np.loadtxt(args.common_long_empty, delimiter='\t')
+            except:
+                long_bckg = np.loadtxt(args.common_long_bckg, delimiter='\t', skiprows=14)
+                long_empty = np.loadtxt(args.common_long_empty, delimiter='\t', skiprows=14)
         else:
             long_bckg = np.loadtxt(str(args.long_name).replace('in.txt', 'bckg.txt'), delimiter='\t')
             long_empty = np.loadtxt(str(args.long_name).replace('in.txt', 'empty.txt'), delimiter='\t')
+
+        try:
+            long_in = np.loadtxt(args.long_name, delimiter='\t')
+            if args.fQY == False: 
+                long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t')
+            else:
+                long_out = long_empty.copy()
+        except:
+            long_in = np.loadtxt(args.long_name, delimiter='\t', skiprows=14)
+            if args.fQY == False: 
+                long_out = np.loadtxt(str(args.long_name).replace('in.txt', 'out.txt'), delimiter='\t', skiprows=14)
+            else:
+                long_out = long_empty.copy()
 
         data = np.c_[data, long_in, long_out, long_bckg, long_empty]
 
     return data
 
-def save_res(fig, spectrum, args):
+def fit_voigt(ax, spectra, args):
+    fit_range = args.pl_range
+    wl = spectra[:, 0]
+    sp = spectra[:, 2]
+
+    wl_fit = wl[(wl>fit_range[0]) & (wl<fit_range[1])]
+    sp_fit = sp[(wl>fit_range[0]) & (wl<fit_range[1])]
+
+
+    mod = VoigtModel() + ConstantModel()
+    pars = mod.make_params(amplitude=np.max(sp_fit), center=np.average(fit_range), 
+                            sigma=10, gamma=10, c=0)
+
+    out = mod.fit(sp_fit, pars, x=wl_fit)
+
+    ax.plot(wl_fit, out.best_fit, 'k--', alpha=0.8)
+    print(
+        f'Peak center = {out.params["center"].value:.2f} nm \n'
+        f'FWHM = {out.params["fwhm"].value:.2f} nm')
+    
+    return out.params['center'].value, out.params['fwhm'].value, 
+
+def save_res(fig, spectra, args):
     # saving results
     plt.savefig(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'fig.pdf'))), format='pdf')
-    np.savetxt(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'spectrum.txt'))), spectrum, delimiter='\t', fmt='%.5e')
+    spectra_header = 'Wavelength\t empty\t in\t out\t proc'
+    np.savetxt(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'spectra.txt'))), spectra, delimiter='\t', fmt='%.5e', header=spectra_header, comments='')
 
 
 
 # Run functions
 if __name__ == "__main__":
     args = get_args()
-    fig, spectrum = PLQE(args)
-    save_res(fig, spectrum, args)
+    fig, spectra = PLQE(args)
+    save_res(fig, spectra, args)
 
 plt.show()
