@@ -6,6 +6,7 @@
 # Using the procedure of DeMello et al https://doi.org/10.1002/adma.19970090308
 
 # History
+# testing for branch
 # 06/08/2019, converted from Matlab
 # 09/08/2019, first working version (no added functions)
 # 22/09/2019, added QE pro spectrometer
