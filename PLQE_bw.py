@@ -6,12 +6,12 @@
 # Using the procedure of DeMello et al https://doi.org/10.1002/adma.19970090308
 
 # History
-# testing for branch
 # 06/08/2019, converted from Matlab
 # 09/08/2019, first working version (no added functions)
 # 22/09/2019, added QE pro spectrometer
 # 27/09/2019, added subtraction of stray light
 # 08/10/2019, added Gooey (see Github for further history)
+# 16/4/2021, created a helio branch specific for use in Begbroke
 
 import sys
 import argparse
@@ -27,6 +27,9 @@ from lmfit.models import VoigtModel, ConstantModel
 
 # define calibration files
 cal_dict = {
+        "4 pi" : 'cal_top_port.txt',
+        "2 pi" : 'cal_laser_port.txt',
+        "fQY OD1" : 'cal_fQY_OD1_filter.txt',
         "Maya red" : 'cal_Maya_red.txt',
         "Maya steel" : 'cal_Maya_steel.txt',
         "QE red 25"  : 'cal_QEpro_red_25um.txt',
@@ -35,7 +38,7 @@ cal_dict = {
         "QE steel 200" : 'cal_QEpro_steel_200um.txt',
     }
 
-cfgs = ['Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25', 'QE steel 200']
+cfgs = ['4 pi', '2 pi', 'fQY OD1', 'Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25', 'QE steel 200']
 
 # Use flag --ignore-gooey if you want to use the command line
 @Gooey(advanced=True,          # toggle whether to show advanced config or not 
@@ -52,6 +55,7 @@ def get_args():
 
     req = parser.add_argument_group('Select directory and file', gooey_options={'columns': 1})
     req.add_argument('-sp', '--short_path', type=str, widget="FileChooser", help="Path to the '_in.txt' file (e.g. 'C:/folder_name/sub_folder/short_name_in.txt'", gooey_options={'wildcard':"'in' files (*_in.txt)|*_in.txt|" "All files (*.*)|*.*"})    
+    req.add_argument('-st', '--short_time', default= 10, type=int, widget='IntegerField', help="Integration time for short measurement in ms")
     req.add_argument('-c', '--common', action='store_true', help="Indicates that common background and empty files are used.")
     req.add_argument('-f', '--fQY', action='store_true', help="Check this for fQY mode.")
     
@@ -59,13 +63,12 @@ def get_args():
     opt = parser.add_argument_group('optional arguments', gooey_options={'columns': 2})
     opt.add_argument('-lr', '--laser_range', nargs = 2, default = "440 460", type=int, help="Laser wavelength range in nm, Default = 440 460")
     opt.add_argument('-plr', '--pl_range', nargs = 2, default = "550 850", type=int, help="PL detection range in nm, Default = 550 850")
-    opt.add_argument('-cfg', '--config', default='Maya red', widget="Dropdown", choices=cfgs, type=str, help="Fiber and spectrometer configurations. Choices: 'Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25' or 'QE steel 200', Default = 'Maya red'")    
+    opt.add_argument('-cfg', '--config', default='4 pi', widget="Dropdown", choices=cfgs, type=str, help="Fiber and spectrometer configurations. Choices: '4 pi', '2 pi', 'fQY' 'Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25' or 'QE steel 200', Default = '4 pi'")    
     opt.add_argument('-sl', '--stray_light', action='store_true', help="Removes stray light background. Default = 'False'")
     opt.add_argument('-cb', '--common_bckg', default= 'bckg.txt', type=str, help=" Name of the common background file. Default = 'bckg.txt'")
     opt.add_argument('-ce', '--common_empty', default= 'empty.txt', type=str, help=" Name of the common empty file. Default = 'empty.txt'")
 
     long_group = parser.add_argument_group("Using long integration time", gooey_options={'columns': 3})
-    long_group.add_argument('-st', '--short_time', default= 10, type=int, help="Integration time for short measurement in ms")
     long_group.add_argument('-lt', '--long_time', default= 100, type=int, help="Integration time for long measurement in ms")
     long_group.add_argument('-lp', '--long_path', type=str, default='', widget="FileChooser", help="Path to the long '_in.txt' file (e.g. 'C:/folder_name/sub_folder/long_name_in.txt'", gooey_options={'wildcard':"'in' files (*_in.txt)|*_in.txt|" "All files (*.*)|*.*"})    
     long_group.add_argument('-cl', '--common_long', action='store_true', help="Indicates that common background and empty files are used. Default = True")
@@ -93,7 +96,10 @@ def PLQE(args):
         vr = [4, -5] # valid range limits
         data = trim(data, vr)
     elif 'Maya' in args.config: 
-        vr = [5, -6] # valid range limits
+        vr = [15, -6] # valid range limits
+        data = trim(data, vr)
+    else: 
+        vr = [15, -6] # valid range limits
         data = trim(data, vr)
     
     cal = np.interp(data[:, 0], cal[:, 0], cal[:, 1])
@@ -154,9 +160,9 @@ def PLQE(args):
         _empty = short_empty[:, 1]
     
     # Apply calibration
-    _in  = _in * cal
-    _out = _out * cal
-    _empty = _empty * cal
+    _in  = _in * cal / args.short_time
+    _out = _out * cal  / args.short_time
+    _empty = _empty * cal  / args.short_time
 
 
 
