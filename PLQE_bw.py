@@ -160,9 +160,9 @@ def PLQE(args):
         _empty = short_empty[:, 1]
     
     # Apply calibration
-    _in  = _in * cal / args.short_time
-    _out = _out * cal  / args.short_time
-    _empty = _empty * cal  / args.short_time
+    _in  = _in * cal
+    _out = _out * cal
+    _empty = _empty * cal
 
 
 
@@ -231,8 +231,8 @@ def PLQE(args):
         ax.semilogy(wl, _in, label='in')
         ax.semilogy(wl, _out, label='out')
         ax.semilogy(wl, _empty, label='empty')
-        ax.set_xlabel('Wavelength (nm)')
-        ax.set_ylabel('Counts [a.u.]')
+        ax.set_xlabel('Wavelength [nm]')
+        ax.set_ylabel('Intensity [µW/nm]')
         ax.legend()
 
     ax1.set_xlim(args.laser_range[0]-15, args.laser_range[1] + 15)
@@ -245,8 +245,8 @@ def PLQE(args):
 
     ax3.plot(wl, _in - _empty, label='in')
     ax3.plot(wl, _out - _empty, label='out')
-    ax3.set_xlabel('Wavelength (nm)')
-    ax3.set_ylabel('Counts [a.u.]')
+    ax3.set_xlabel('Wavelength [nm]')
+    ax3.set_ylabel('Intensity [µW/nm]')
     ax3.set_xlim(args.pl_range[0]-25, args.pl_range[1] + 25)
     ax3.set_ylim(0, 1.2* np.max(_in[np.where((wl > args.pl_range[0]) & (wl < args.pl_range[1]))] - _empty[np.where((wl > args.pl_range[0]) & (wl < args.pl_range[1]))]))
 
