@@ -217,6 +217,7 @@ def PLQE(args):
     print('PLQY = {:.3f} %'.format(QE_full*100))
     print('Absorbtance = {:.2f} %'.format(absorbed_full*100))
     print('OD = {:.2f} '.format(-np.log10(1-absorbed_full)))
+    print(f'Laser power: {np.trapz(_empty[(wl > args.laser_range[0]) & (wl < args.laser_range[1])], x=wl[(wl > args.laser_range[0]) & (wl < args.laser_range[1])])/1000:.2f} mW')
 
     # Plot results
     fig = plt.figure(figsize=(11,8))
