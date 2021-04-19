@@ -217,7 +217,8 @@ def PLQE(args):
     print('PLQY = {:.3f} %'.format(QE_full*100))
     print('Absorbtance = {:.2f} %'.format(absorbed_full*100))
     print('OD = {:.2f} '.format(-np.log10(1-absorbed_full)))
-    print(f'Laser power: {np.trapz(_empty[(wl > args.laser_range[0]) & (wl < args.laser_range[1])], x=wl[(wl > args.laser_range[0]) & (wl < args.laser_range[1])])/1000:.2f} mW')
+    laser_power = np.trapz(_empty[(wl > args.laser_range[0]) & (wl < args.laser_range[1])], x=wl[(wl > args.laser_range[0]) & (wl < args.laser_range[1])])/1000 # in mW
+    print(f'Laser power: {laser_power:.2f} mW')
 
     # Plot results
     fig = plt.figure(figsize=(11,8))
@@ -237,12 +238,14 @@ def PLQE(args):
         ax.legend()
 
     ax1.set_xlim(args.laser_range[0]-15, args.laser_range[1] + 15)
-    ax1.set_ylim(bottom = 1e-2)
+    ax1.set_ylim(bottom = 1e-4)
     ax1.axvline(args.laser_range[0], linestyle='--', color='k')
     ax1.axvline(args.laser_range[1], linestyle='--', color='k')
+    ax1.annotate(f'Laser power: {laser_power:.2f} mW', xy=(0.1, 0.89), xycoords='axes fraction')
     ax2.set_xlim(args.pl_range[0]-25, args.pl_range[1] + 25)
     ax2.axvline(args.pl_range[0], linestyle='--', color='k')
     ax2.axvline(args.pl_range[1], linestyle='--', color='k')
+
 
     ax3.plot(wl, _in - _empty, label='in')
     ax3.plot(wl, _out - _empty, label='out')
