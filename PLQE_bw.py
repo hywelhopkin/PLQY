@@ -55,7 +55,7 @@ def get_args():
 
     req = parser.add_argument_group('Select directory and file', gooey_options={'columns': 1})
     req.add_argument('-sp', '--short_path', type=str, widget="FileChooser", help="Path to the '_in.txt' file (e.g. 'C:/folder_name/sub_folder/short_name_in.txt'", gooey_options={'wildcard':"'in' files (*_in.txt)|*_in.txt|" "All files (*.*)|*.*"})    
-    req.add_argument('-st', '--short_time', default= 10, type=int, widget='IntegerField', help="Integration time for short measurement in ms")
+    req.add_argument('-st', '--short_time', default= 10, type=int, help="Integration time for short measurement in ms")
     req.add_argument('-c', '--common', action='store_true', help="Indicates that common background and empty files are used.")
     req.add_argument('-f', '--fQY', action='store_true', help="Check this for fQY mode.")
     
