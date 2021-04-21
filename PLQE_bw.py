@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.io import loadmat
 from lmfit.models import VoigtModel, ConstantModel
+from scipy.constants import Planck, speed_of_light
 
 
 # define calibration files
@@ -204,19 +205,22 @@ def PLQE(args):
         _in, _out, _empty = remove_stray(_in, _out, _empty, wl, wl_range, args.pl_range)
         
     spectra = np.c_[wl, _empty, _in, _out, (_in - _out)]
+
+    p2e = (Planck * speed_of_light / (1e-9 * wl))  # photon to energy conversion J/photon
     
-    # The calibration gives a scaled spectrum with a response proportional to the number of photons, not the power 
-    absorbed_full = 1 - inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)
-    PL_full  = inte(_in, wl, args.pl_range) - inte(_empty, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out, wl, args.pl_range) - inte(_empty, wl, args.pl_range))
-    QE_full = PL_full / (inte(_empty, wl, args.laser_range) * absorbed_full)
+    # The calibration file gives a spectrum in W/nm, we have to convert into photons 
+    absorbed_full = 1 - inte(_in / p2e , wl, args.laser_range) / inte(_out / p2e, wl, args.laser_range)
+    PL_full  = inte(_in / p2e, wl, args.pl_range) - inte(_empty / p2e, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out / p2e, wl, args.pl_range) - inte(_empty / p2e, wl, args.pl_range))
+    QE_full = PL_full / (inte(_empty / p2e, wl, args.laser_range) * absorbed_full)
+
+    OD = -np.log10(inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)) # this is in energy scale
 
     # Print results
     print('')
     print(f'RESULTS ({args.short_name})')
     print('-------')
     print('PLQY = {:.3f} %'.format(QE_full*100))
-    print('Absorbtance = {:.2f} %'.format(absorbed_full*100))
-    print('OD = {:.2f} '.format(-np.log10(1-absorbed_full)))
+    print(f'OD = {OD:.2f} ')
     laser_power = np.trapz(_empty[(wl > args.laser_range[0]) & (wl < args.laser_range[1])], x=wl[(wl > args.laser_range[0]) & (wl < args.laser_range[1])])/1000 # in mW
     print(f'Laser power: {laser_power:.2f} mW')
 
@@ -334,7 +338,7 @@ def fit_voigt(ax, spectra, args):
 
 
     mod = VoigtModel() + ConstantModel()
-    pars = mod.make_params(amplitude=np.max(sp_fit), center=np.average(fit_range), 
+    pars = mod.make_params(amplitude=np.max(sp_fit), center=wl_fit[np.argmax(sp_fit)], 
                             sigma=10, gamma=10, c=0)
 
     out = mod.fit(sp_fit, pars, x=wl_fit)
