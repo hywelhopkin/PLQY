@@ -160,7 +160,7 @@ def PLQE(args):
         _out = short_out[:, 1]
         _empty = short_empty[:, 1]
     
-    # Apply calibration
+    # Apply calibration (generates spectra in µW/nm)
     _in  = _in * cal
     _out = _out * cal
     _empty = _empty * cal
@@ -204,11 +204,11 @@ def PLQE(args):
         wl_range = [370, 390]
         _in, _out, _empty = remove_stray(_in, _out, _empty, wl, wl_range, args.pl_range)
         
-    spectra = np.c_[wl, _empty, _in, _out, (_in - _out)]
+    spectra = np.c_[wl, _empty, _in, _out, (_in - _out)] # in µW/nm
 
-    p2e = (Planck * speed_of_light / (1e-9 * wl))  # photon to energy conversion J/photon
+    p2e = Planck * speed_of_light / (1e-9 * wl)  # photon to energy conversion J/photon
     
-    # The calibration file gives a spectrum in W/nm, we have to convert into photons 
+    # Applying the correction 'cal' gives a spectrum in W/nm, we have to convert into photons using p2e
     absorbed_full = 1 - inte(_in / p2e , wl, args.laser_range) / inte(_out / p2e, wl, args.laser_range)
     PL_full  = inte(_in / p2e, wl, args.pl_range) - inte(_empty / p2e, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out / p2e, wl, args.pl_range) - inte(_empty / p2e, wl, args.pl_range))
     QE_full = PL_full / (inte(_empty / p2e, wl, args.laser_range) * absorbed_full)
