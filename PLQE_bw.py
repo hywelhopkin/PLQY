@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.io import loadmat
 from lmfit.models import VoigtModel, ConstantModel
+from scipy.constants import Planck, speed_of_light
 
 
 # define calibration files
@@ -198,10 +199,12 @@ def PLQE(args):
         
     spectra = np.c_[wl, _empty, _in, _out, (_in - _out)]
     
-    # The calibration gives a scaled spectrum with a response proportional to the number of photons, not the power 
-    absorbed_full = 1 - inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)
-    PL_full  = inte(_in, wl, args.pl_range) - inte(_empty, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out, wl, args.pl_range) - inte(_empty, wl, args.pl_range))
-    QE_full = PL_full / (inte(_empty, wl, args.laser_range) * absorbed_full)
+    p2e = Planck * speed_of_light / (1e-9 * wl)  # photon to energy conversion J/photon
+    
+    # Applying the correction 'cal' gives a spectrum in W/nm, we have to convert into photons using p2e
+    absorbed_full = 1 - inte(_in / p2e , wl, args.laser_range) / inte(_out / p2e, wl, args.laser_range)
+    PL_full  = inte(_in / p2e, wl, args.pl_range) - inte(_empty / p2e, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out / p2e, wl, args.pl_range) - inte(_empty / p2e, wl, args.pl_range))
+    QE_full = PL_full / (inte(_empty / p2e, wl, args.laser_range) * absorbed_full)
 
     # Print results
     print('')
@@ -323,7 +326,7 @@ def fit_voigt(ax, spectra, args):
 
 
     mod = VoigtModel() + ConstantModel()
-    pars = mod.make_params(amplitude=np.max(sp_fit), center=np.average(fit_range), 
+    pars = mod.make_params(amplitude=np.max(sp_fit), center=wl_fit[np.argmax(sp_fit)], 
                             sigma=10, gamma=10, c=0)
 
     out = mod.fit(sp_fit, pars, x=wl_fit)
