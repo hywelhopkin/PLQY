@@ -22,6 +22,7 @@ import matplotlib.gridspec as gridspec
 from lmfit.models import VoigtModel, ConstantModel
 from scipy.constants import Planck, speed_of_light
 import pyperclip as pc
+import csv
 
 # define calibration files
 cal_dict = {
@@ -274,7 +275,9 @@ def PLQE(args):
     )
     pc.copy(string_pc)
 
-    return fig, spectra
+    to_log = [args.short_name, f'{QE_full*100:.3f}', f'{OD:.3f}', f'{center:.2f}', f'{fwhm:.2f}', f'{laser_power:.2f}']
+
+    return fig, spectra, to_log
 
 def loadit(args):
     # Function to load files
@@ -359,12 +362,25 @@ def save_res(fig, spectra, args):
     spectra_header = 'Wavelength\t empty\t in\t out\t proc'
     np.savetxt(str(PurePath(args.directory).joinpath(str(args.short_name).replace('in.txt', 'spectra.txt'))), spectra, delimiter='\t', fmt='%.5e', header=spectra_header, comments='')
 
+def save_log(args, to_log):
+    logfile = Path(args.directory).joinpath('log_plqy.csv')
+    header = ['Name', 'PLQY (%)', 'OD (-)', 'Peak WL (nm)', 'FWHM (nm)', 'Laser power (mW)']
 
+    if not logfile.is_file():
+        with open(logfile, 'w', newline='') as f:
+            f_write = csv.writer(f, dialect='excel')
+            f_write.writerow(header)
+
+    with open(logfile, 'a', newline='') as f:
+        f_write = csv.writer(f, dialect='excel')
+        f_write.writerow(to_log)
 
 # Run functions
 if __name__ == "__main__":
     args = get_args()
-    fig, spectra = PLQE(args)
+    fig, spectra, res_to_log = PLQE(args)
     save_res(fig, spectra, args)
+    save_log(args, res_to_log)
+
 
 plt.show()
