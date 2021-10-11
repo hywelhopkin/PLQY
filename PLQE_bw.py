@@ -13,18 +13,15 @@
 # 08/10/2019, added Gooey (see Github for further history)
 # 16/4/2021, created a helio branch specific for use in Begbroke
 
-import sys
-import argparse
 from pathlib import Path, PurePath
 from os import chdir
 from gooey import Gooey, GooeyParser
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from scipy.io import loadmat
 from lmfit.models import VoigtModel, ConstantModel
 from scipy.constants import Planck, speed_of_light
-
+import pyperclip as pc
 
 # define calibration files
 cal_dict = {
@@ -215,15 +212,8 @@ def PLQE(args):
 
     OD = -np.log10(inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)) # this is in energy scale
 
-    # Print results
-    print('')
-    print(f'RESULTS ({args.short_name})')
-    print('-------')
-    print('PLQY = {:.3f} %'.format(QE_full*100))
-    print(f'OD = {OD:.2f} ')
     laser_power = np.trapz(_empty[(wl > args.laser_range[0]) & (wl < args.laser_range[1])], x=wl[(wl > args.laser_range[0]) & (wl < args.laser_range[1])])/1000 # in mW
-    print(f'Laser power: {laser_power:.2f} mW')
-
+    
     # Plot results
     fig = plt.figure(figsize=(11,8))
     gs = gridspec.GridSpec(2,2)
@@ -267,6 +257,22 @@ def PLQE(args):
         f'Peak center = {center:.2f} nm \n'
         f'FWHM = {fwhm:.2f} nm',
         xy=(0.05, 0.89), xycoords='axes fraction')
+
+    # Print results
+    string_pc = f'<html><table><tr><td>{QE_full*100:.2f}</td><td>{OD:.2f}</td><td>{center:.2f}</td><td>{fwhm:.2f}</td><td>{laser_power:.2f}</td></tr></table></html>'
+
+    print(
+        f'\nRESULTS ({args.short_name})\n'
+        f'-------\n'
+        f'PLQY = {QE_full*100:.2f} %\n'
+        f'OD = {OD:.2f}\n'
+        f'Peak WL = {center:.2f} nm\n'
+        f'FWHM = {fwhm:.2f} nm\n'
+        f'Laser power = {laser_power:.2f} mW\n'
+        f'\n/// string to copy-paste for Excel ////\n'
+        f'{string_pc}'
+    )
+    pc.copy(string_pc)
 
     return fig, spectra
 
@@ -344,9 +350,6 @@ def fit_voigt(ax, spectra, args):
     out = mod.fit(sp_fit, pars, x=wl_fit)
 
     ax.plot(wl_fit, out.best_fit, 'k--', alpha=0.8)
-    print(
-        f'Peak center = {out.params["center"].value:.2f} nm \n'
-        f'FWHM = {out.params["fwhm"].value:.2f} nm')
     
     return out.params['center'].value, out.params['fwhm'].value, 
 
