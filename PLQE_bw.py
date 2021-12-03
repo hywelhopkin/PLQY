@@ -211,6 +211,12 @@ def PLQE(args):
     PL_full  = inte(_in / p2e, wl, args.pl_range) - inte(_empty / p2e, wl, args.pl_range) - (1 - absorbed_full) * (inte(_out / p2e, wl, args.pl_range) - inte(_empty / p2e, wl, args.pl_range))
     QE_full = PL_full / (inte(_empty / p2e, wl, args.laser_range) * absorbed_full)
 
+    # Values in power scale (µW/nm)
+    absorbed_W = 1 - inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range) 
+    PL_W  = inte(_in, wl, args.pl_range) - inte(_empty, wl, args.pl_range) - (1 - absorbed_W) * (inte(_out, wl, args.pl_range) - inte(_empty, wl, args.pl_range))
+    PE_full = PL_W / (inte(_empty, wl, args.laser_range) * absorbed_W)
+
+
     OD = -np.log10(inte(_in, wl, args.laser_range) / inte(_out, wl, args.laser_range)) # this is in energy scale
 
     laser_power = np.trapz(_empty[(wl > args.laser_range[0]) & (wl < args.laser_range[1])], x=wl[(wl > args.laser_range[0]) & (wl < args.laser_range[1])])/1000 # in mW
@@ -266,16 +272,17 @@ def PLQE(args):
         f'\nRESULTS ({args.short_name})\n'
         f'-------\n'
         f'PLQY = {QE_full*100:.2f} %\n'
+        f'PE = {PE_full*100:.2f} %\n'
         f'OD = {OD:.2f}\n'
         f'Peak WL = {center:.2f} nm\n'
         f'FWHM = {fwhm:.2f} nm\n'
         f'Laser power = {laser_power:.2f} mW\n'
-        f'\n/// string to copy-paste for Excel ////\n'
-        f'{string_pc}'
+        # f'\n/// string to copy-paste for Excel ////\n'
+        # f'{string_pc}'
     )
-    pc.copy(string_pc)
+    # pc.copy(string_pc) # string to Excel is copied in the clipboard
 
-    to_log = [args.short_name, f'{QE_full*100:.3f}', f'{OD:.3f}', f'{center:.2f}', f'{fwhm:.2f}', f'{laser_power:.2f}']
+    to_log = [args.short_name, f'{QE_full*100:.3f}', f'{PE_full*100:.3f}', f'{OD:.3f}', f'{center:.2f}', f'{fwhm:.2f}', f'{laser_power:.2f}']
 
     return fig, spectra, to_log
 
@@ -364,7 +371,7 @@ def save_res(fig, spectra, args):
 
 def save_log(args, to_log):
     logfile = Path(args.directory).joinpath('log_plqy.csv')
-    header = ['Name', 'PLQY (%)', 'OD (-)', 'Peak WL (nm)', 'FWHM (nm)', 'Laser power (mW)']
+    header = ['Name', 'PLQY (%)', 'PE (%)', 'OD (-)', 'Peak WL (nm)', 'FWHM (nm)', 'Laser power (mW)']
 
     if not logfile.is_file():
         with open(logfile, 'w', newline='') as f:
