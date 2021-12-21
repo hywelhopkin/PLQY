@@ -21,13 +21,12 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from lmfit.models import VoigtModel, ConstantModel
 from scipy.constants import Planck, speed_of_light
-import pyperclip as pc
 import csv
 
 # define calibration files
 cal_dict = {
         "4 pi" : 'cal_PLQY_helio.txt',
-        "fQY tube" : 'cal_fQY_tube_helio_filter.txt',
+        "fQY tube" : 'cal_fQY_tube_helio.txt',
         "fQY sphere" : 'cal_fQY_sphere_helio.txt',
          }
 
