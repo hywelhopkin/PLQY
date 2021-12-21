@@ -26,18 +26,12 @@ import csv
 
 # define calibration files
 cal_dict = {
-        "4 pi" : 'cal_top_port.txt',
-        "2 pi" : 'cal_laser_port.txt',
-        "fQY OD1" : 'cal_fQY_OD1_filter.txt',
-        "Maya red" : 'cal_Maya_red.txt',
-        "Maya steel" : 'cal_Maya_steel.txt',
-        "QE red 25"  : 'cal_QEpro_red_25um.txt',
-        "QE red 200" : 'cal_QEpro_red_200um.txt',
-        "QE steel 25" : 'cal_QEpro_steel_25um.txt',
-        "QE steel 200" : 'cal_QEpro_steel_200um.txt',
-    }
+        "4 pi" : 'cal_PLQY_helio.txt',
+        "fQY tube" : 'cal_fQY_tube_helio_filter.txt',
+        "fQY sphere" : 'cal_fQY_sphere_helio.txt',
+         }
 
-cfgs = ['4 pi', '2 pi', 'fQY OD1', 'Maya red', 'Maya steel', 'QE red 25', 'QE red 200', 'QE steel 25', 'QE steel 200']
+cfgs = ['4 pi', 'fQY tube', 'fQY sphere']
 
 # Use flag --ignore-gooey if you want to use the command line
 @Gooey(advanced=True,          # toggle whether to show advanced config or not 
