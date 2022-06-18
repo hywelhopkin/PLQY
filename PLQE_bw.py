@@ -47,9 +47,11 @@ def get_args():
 
     req = parser.add_argument_group('Select directory and file', gooey_options={'columns': 1})
     req.add_argument('-sp', '--short_path', type=str, widget="FileChooser", help="Path to the '_in.txt' file (e.g. 'C:/folder_name/sub_folder/short_name_in.txt'", gooey_options={'wildcard':"'in' files (*_in.txt)|*_in.txt|" "All files (*.*)|*.*"})    
+    req.add_argument('-fd', '--folder', type=Path , widget="DirChooser", help="Select folder containing files")
     req.add_argument('-st', '--short_time', default= 10, type=int, help="Integration time for short measurement in ms")
     req.add_argument('-c', '--common', action='store_true', help="Indicates that common background and empty files are used.")
     req.add_argument('-f', '--fQY', action='store_true', help="Check this for fQY mode.")
+    req.add_argument('-nf', '--no_fig', action='store_true', help="Don't show figure")
     
 
     opt = parser.add_argument_group('optional arguments', gooey_options={'columns': 2})
@@ -69,10 +71,13 @@ def get_args():
 
     args = parser.parse_args()
 
-    args.directory = Path(args.short_path).resolve().parent
-    args.short_name = Path(args.short_path).name
-    if (args.long_path != '') : args.long_name = Path(args.long_path).name
-    args.cwd = Path.cwd()
+    # Need to find a way to treat these even if we choose the folder option.
+    # To test if a string is empty one can use "if not myString:"
+
+    # args.directory = Path(args.short_path).resolve().parent
+    # args.short_name = Path(args.short_path).name
+    # if (args.long_path != '') : args.long_name = Path(args.long_path).name
+    # args.cwd = Path(__file__).resolve().parent
     return args
 
 def PLQE(args):
@@ -378,9 +383,13 @@ def save_log(args, to_log):
 # Run functions
 if __name__ == "__main__":
     args = get_args()
-    fig, spectra, res_to_log = PLQE(args)
-    save_res(fig, spectra, args)
-    save_log(args, res_to_log)
+    # # if (args.folder) check if string is empty. If it is continue as normal with args.short_name. If not run a loop where args.short_name is changed at every iteration
+    for in_file in Path(args.folder).glob('*in  .txt'):
+        print(in_file)
+    # # do something with "txt_file
+    # fig, spectra, res_to_log = PLQE(args)
+    # save_res(fig, spectra, args)
+    # save_log(args, res_to_log)
 
-
-plt.show()
+if args.no_fig == False:
+    plt.show()
