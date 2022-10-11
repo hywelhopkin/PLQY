@@ -12,6 +12,7 @@
 # 27/09/2019, added subtraction of stray light
 # 08/10/2019, added Gooey (see Github for further history)
 # 16/4/2021, created a helio branch specific for use in Begbroke
+# 11/10/2022, HH added ability to loop through all in_txt files in a directory
 
 from pathlib import Path, PurePath
 from os import chdir
@@ -22,6 +23,7 @@ import matplotlib.gridspec as gridspec
 from lmfit.models import VoigtModel, ConstantModel
 from scipy.constants import Planck, speed_of_light
 import csv
+import glob
 
 # define calibration files
 cal_dict = {
@@ -71,13 +73,16 @@ def get_args():
 
     args = parser.parse_args()
 
-    # Need to find a way to treat these even if we choose the folder option.
-    # To test if a string is empty one can use "if not myString:"
+    #check if user is selecting single in.txt file or folder of in.txt files
+    if args.short_path is None:
+        args.directory = Path(args.folder).resolve()
+    else:
+        args.directory = Path(args.short_path).resolve().parent
+        args.short_name = Path(args.short_path).name
 
-    # args.directory = Path(args.short_path).resolve().parent
-    # args.short_name = Path(args.short_path).name
-    # if (args.long_path != '') : args.long_name = Path(args.long_path).name
-    # args.cwd = Path(__file__).resolve().parent
+    if (args.long_path != '') : args.long_name = Path(args.long_path).name
+    args.cwd = Path(__file__).resolve().parent
+
     return args
 
 def PLQE(args):
@@ -160,7 +165,6 @@ def PLQE(args):
     _in  = _in * cal
     _out = _out * cal
     _empty = _empty * cal
-
 
 
     def inte(d, x, _range):
@@ -384,12 +388,19 @@ def save_log(args, to_log):
 if __name__ == "__main__":
     args = get_args()
     # # if (args.folder) check if string is empty. If it is continue as normal with args.short_name. If not run a loop where args.short_name is changed at every iteration
-    for in_file in Path(args.folder).glob('*in  .txt'):
-        print(in_file)
-    # # do something with "txt_file
-    # fig, spectra, res_to_log = PLQE(args)
-    # save_res(fig, spectra, args)
-    # save_log(args, res_to_log)
+    if args.short_path is None:
+        chdir(Path(args.folder))
+        all_text_paths = glob.glob(str('*in.txt'))
+        print(all_text_paths)
+        for in_file in all_text_paths:
+            args.short_name = in_file
+            fig, spectra, res_to_log = PLQE(args)
+            save_res(fig, spectra, args)
+            save_log(args, res_to_log)
+    else:
+        fig, spectra, res_to_log = PLQE(args)
+        save_res(fig, spectra, args)
+        save_log(args, res_to_log) 
 
 if args.no_fig == False:
     plt.show()
